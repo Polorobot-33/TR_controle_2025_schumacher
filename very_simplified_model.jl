@@ -9,11 +9,18 @@ using CairoMakie
 using Random
 
 
+"""
+	expression de la dérivée dans le modèle de dynamique : x' = f(x, u)
+"""
 function dyn(x::Vector, u::Real, r::Real)
 	_, _, ϕ = x
 	return [u * cos(ϕ), u * sin(ϕ), r]
 end
 
+"""
+	contraintes associées à la dynamique (schéma d'euler explicite)
+	Remarque : le schéma d'euler explicite est beaucoup plus rapide que le schéma d'euler implicite
+"""
 function dynamics_cons(x::Vector, u::Vector, r::Vector, T::Real, N::Int)
 	δt = T / (N-1)
 	arr = ((xnp1, xn, xdot) -> xnp1 .- (xn .+ δt*T.*xdot)).(x[2:end], x[1:end-1], dyn.(x[1:end-1], u[1:end-1], r[1:end-1]))
@@ -25,7 +32,7 @@ function rotate(p, ϕ)
 end
 
 """
-	returns the coordinates of the ith corner of a centered rectangle rotated by ϕ
+	renvoie les coordonnées du sommet i d'un rectangle de dimensions (width, length) tourné de ϕ
 """
 function corner(ϕ, width, length, i)
 	cx = (i ÷ 2) % 2 == 0 ? width/2 : -width/2
@@ -33,16 +40,25 @@ function corner(ϕ, width, length, i)
 	return rotate([cx, cy], ϕ)
 end
 
+
 function corner(width, length, i)
     cx = (i ÷ 2) % 2 == 0 ? width/2 : -width/2
 	cy = ((i+1) ÷ 2) % 2 == 0 ? length/2 : -length/2
 	return [cx, cy]
 end
 
+
+"""
+	apprixomation régularisante de la fonction max (ou min en donnant un alpha < 0)
+"""
 function smooth_minmax(a, b, alpha)
     return (a * exp(a*alpha) + b * exp(b*alpha)) / (exp(a*alpha) + exp(b*alpha))
 end
 
+"""
+	contrainte géométrique pour exprimer l'appartenance d'un point au domaine admissible (croix)
+	Cette grandeur doit être ≥ 0
+"""
 function single_geom_cons(x::Vector, dimensions::Tuple, alpha::Float64)
 	x_, y_, _ = x
 	l1, l2 = dimensions
@@ -50,10 +66,16 @@ function single_geom_cons(x::Vector, dimensions::Tuple, alpha::Float64)
     return 1 - smooth_minmax(abs(x_) / (l1/2), abs(y_) / (l2/2), -alpha)
 end
 
+"""
+	obtention d'un vecteur qui concentre toutes les contraintes géometriques des points de la trajectoire
+"""
 function geom_cons(x::Vector, dimensions::Tuple, alpha::Float64)
     return (s -> single_geom_cons(s, dimensions, alpha)).(x)
 end
 
+"""
+	fonction contraintes utilisée dans le problème d'optimisation
+"""
 function problem_cons(res, x, p::Tuple)
 	# unpack the parameters
 	N, dimensions, U_max, cdt_0, cdt_f, alpha = p
@@ -71,10 +93,14 @@ function problem_cons(res, x, p::Tuple)
 	res .= [dynamics_cons(x_, u_, r, T, N); end_cons; geom_cons(x_, dimensions, alpha); speed_cons; x[end]]
 end
 
+
 function lerp(a, b, x)
 	return b .* x .+ (1-x) .* a
 end
 
+"""
+	génère un vecteur initial x0 suivant une trajectoire en ligne droite entre les points de départ et d'arrivée
+"""
 function initialConditionsStraight(N, U_max, x_0, x_f)
 	p0 = [x_0...][1:2]
 	pf = [x_f...][1:2]
@@ -90,6 +116,9 @@ function initialConditionsStraight(N, U_max, x_0, x_f)
 	return x, u, r, T
 end
 
+"""
+	interpolation linéaire entre plusieurs vecteurs formant un chemin
+"""
 function lerp_path(x, y, f)
     for (i, px) in enumerate(x)
         px > f && (return lerp(y[i-1], y[i], (f - x[i-1]) / (px - x[i-1])))
@@ -98,7 +127,7 @@ function lerp_path(x, y, f)
 end
 
 """
-    initialize a path that starts at p0, passes through the center to reach pf 
+    génération d'un vectuer initial x0 partant de p0 et allant jusqu'à pf en passant par l'origine (0, 0)
 """
 function initial_conditions_rect(N, U_max, cdt_0, cdt_f)
 	p0 = [cdt_0...][1:2]
@@ -118,33 +147,11 @@ function initial_conditions_rect(N, U_max, cdt_0, cdt_f)
     return x, u, r, T
 end
 
+"""
+	fonction à optimiser (ici T)
+"""
 function objective(u::Vector, p::Tuple)
 	return u[end]
-end
-
-function solve_problem(N::Int, U_max::Tuple{Float64, Float64}, cdt_0::NTuple{5, Float64}, cdt_f::NTuple{5, Float64}, dimensions::NTuple{4, Float64})
-	# paramètres : N, U_max, x_0, x_f, dimensions géométriques
-	params = (N, dimensions, U_max, cdt_0, cdt_f, 3.)
-	
-	# initialisation de x0, en calculant un T et des positions initiales raisonnables
-    x, u, r, T = initial_conditions_rect(N, U_max, cdt_0, cdt_f)
-	x0 = Float64[]
-	for elem in zip(x, u, r)
-		append!(x0, [elem[1]...])
-		push!(x0, elem[2], elem[3])
-	end
-	push!(x0, T)
-
-	# initialisation des contraintes
-	lcons = zeros(3 * (N-1) + 10 + 2*N + N + 1)
-	ucons = [zeros(3 * (N-1) + 10); fill(Inf,2*N + N + 1)]
-
-	#ADTypes.AutoZygote()
-	optim_f = OptimizationFunction(objective, ADTypes.AutoZygote(), cons = problem_cons)
-	prob = Optimization.OptimizationProblem(optim_f, x0, params, lcons=lcons, ucons=ucons)
-	sol = solve(prob, Ipopt.Optimizer(), )
-
-	return sol.u
 end
 
 function solve_problem(x0::Vector{Float64}, U_max::Tuple{Float64, Float64}, cdt_0::NTuple{5, Float64}, cdt_f::NTuple{5, Float64}, dimensions::NTuple{4, Float64})
@@ -169,21 +176,27 @@ function solve_problem(x0::Vector{Float64}, U_max::Tuple{Float64, Float64}, cdt_
 	return sol.u
 end
 
+"""
+	affiche les obstacles
+"""
 function plot_terrain!(ax, width, height)
-  points = [(-3, height/2),  (-width/2, height/2),  (-width/2, 3),
-  			(3, height/2),   (width/2, height/2),   (width/2, 3),
-  			(-3, -height/2), (-width/2, -height/2), (-width/2, -3),
-  			(3, -height/2),  (width/2, -height/2),  (width/2, -3)]
-  linesegments!(ax, points[[1, 2, 2, 3, 4, 5, 5, 6, 7, 8, 8, 9, 10, 11, 11, 12]], color=:blue)
+  	points = [(-2, height/2),  (-width/2, height/2),  (-width/2, 2),
+  			(4, height/2),   (width/2, height/2),   (width/2, 2),
+  			(-2, -height/2), (-width/2, -height/2), (-width/2, -4),
+  			(4, -height/2),  (width/2, -height/2),  (width/2, -4)]
+  	linesegments!(ax, points[[1, 2, 2, 3, 4, 5, 5, 6, 7, 8, 8, 9, 10, 11, 11, 12]], color=:blue)
 end
 
+"""
+	affiche la trajectoire
+"""
 function plot_trajectory!(ax, data)
 	points = [(x, y) for (x, y, _) in data]
 	lines!(ax, points, color=:red)
 end
 
 """
-	plots a reference trajectory
+	affiche une trajectoire de référence
 """
 function plot_circle!(ax, robot_length, width)
 
@@ -195,10 +208,16 @@ function plot_circle!(ax, robot_length, width)
 	lines!(ax, x, y, color=:magenta)
 end
 
+"""
+	affichage du départ et de l'arrivée
+"""
 function plot_endpoints!(ax, x0, xf)
 	scatter!(ax, [x0[1:2], xf[1:2]], marker=:utriangle, color=:black, markersize=15)
 end
 
+"""
+	déssine un rectangle représentant le robot
+"""
 function plot_robot!(ax, pos, size)
 	x, y, ϕ = pos
 	w, l = size
@@ -207,6 +226,9 @@ function plot_robot!(ax, pos, size)
 	lines!(ax, points, color=:green)
 end
 
+"""
+	déssine les positions successives du robot
+"""
 function plot_positions!(ax, pos, size, spacing)
     N = length(pos)
     for i in 1:spacing:N
@@ -214,10 +236,13 @@ function plot_positions!(ax, pos, size, spacing)
 	end
 end
 
+"""
+	créé un problème à résoudre avec des valeurs prédéfinies, et le résout pour un nombre N de points dans la trajectoire
+"""
 function test(N)
 	U_max = (2.4, 1.5)
-	cdt_0 = (0., -2., π/2, 2., 0.)
-	cdt_f = (2., 0., 0., 2., 0.)
+	cdt_0 = (0., -3., π/2, 2.0, 0.)
+	cdt_f = (3., 0., 0., 2.0, 0.)
 
 	x, u, r, T = initial_conditions_rect(N, U_max, cdt_0, cdt_f)
 	x0 = Float64[]
@@ -231,6 +256,9 @@ function test(N)
     return solve_problem(x0, U_max, cdt_0, cdt_f, (1.128, 0.720, 2.4, 0.9))
 end
 
+"""
+	affiche le résultat de la fonction test
+"""
 function show_results(in)
 	N = (length(in) - 1) ÷ 5
 	sol = reshape(in[1:5*N], (5, N))
@@ -239,10 +267,10 @@ function show_results(in)
 	r = sol[5, :]
 	T = in[end]
 
-    f = Figure(size = (512, 820))
+    f = Figure(size = (512, 860))
     times = LinRange(0, T, N)
 
-    Label(f[-1, :], "Solution optimale avec contraintes géométriques", fontsize = 18)
+    Label(f[-1, :], "Solution optimale avec contraintes géométriques,\n modélisation par un point", fontsize = 18)
     Label(f[0, :], "temps de trajet : T = $(trunc(T, digits=3, base=10)) s\nN = $N pts", justification = :left, fontsize = 12, halign=:left)
 
     ax = Axis(f[1, 1], aspect = DataAspect(), alignmode=Inside())
@@ -251,7 +279,7 @@ function show_results(in)
 
     plot_positions!(ax, pos, (1.128, 0.720), 1)
     plot_trajectory!(ax, pos)
-    plot_endpoints!(ax, (0., -2., π/2), (2., 0., 0.))
+    plot_endpoints!(ax, (0., -3., π/2), (3., 0., 0.))
 
     ax_u = Axis(f[2, :], xlabel="temps", ylabel="commande u")
     ax_r = Axis(f[3, :], xlabel="temps", ylabel="commande r")
@@ -262,5 +290,6 @@ function show_results(in)
 
     rowsize!(f.layout, 1, Aspect(1, 1.0))
 
+	
 	return f
 end
