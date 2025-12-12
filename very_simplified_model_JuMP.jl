@@ -1,0 +1,114 @@
+
+using JuMP
+using Ipopt
+using Plots
+using LinearAlgebra
+
+include("initial_conditions.jl")
+include("renderer.jl")
+
+
+function robot_model(nh)
+    l1_c = 2.4 # largeur principale des couloirs
+    l2_c = 0.9 # largeur des couloirs latéraux
+    rw_c = 0.72 # largeur du robot
+    rh_c = 1.128 # longueur du robot
+    d_c  = rw_c * 0.4 # espacement des roues * 0.5
+    u_max = 2.4 # vitesse maximale d'une roue
+    r_max = 1.5 # vitesse maximale de rotation
+
+    # conditions initiales
+    x_0 = 0
+    y_0 = -3
+    ϕ_0 = π/2
+    u_0 = u_max
+    r_0 = 0
+
+    # conditions finales
+    x_f = 3
+    y_f = 0
+    ϕ_f = 0
+    u_f = u_max
+    r_f = 0
+
+    # etat initial
+    x_i, y_i, ϕ_i, u_i, r_i, T_i = init_arc(nh, -3, 3, u_max/2, 1)
+    step = 1 / nh
+
+    # contraintes de collisions
+    A = [1 0; 0 1; -1 0; 0 -1]
+    b = [rh_c/2; rw_c/2; rh_c/2; rw_c/2]
+    C = [0 -1; -1 0; 1 0; 0 -1; 0 1; 1 0; -1 0; 0 1]
+    d = [-l2_c/2; -l1_c/2; -l1_c/2; -l2_c/2; -l2_c/2; -l1_c/2; -l1_c/2; -l2_c/2]
+    S(ϕ) = [cos(ϕ) -sin(ϕ); sin(ϕ) cos(ϕ)]
+    R(x, y) = [x ; y]
+    epsilon = 0.001
+
+    model = Model()
+
+    @variables(model, begin
+        x[i=0:nh],                    (start = x_i[i+1])
+        y[i=0:nh],                    (start = y_i[i+1])
+        ϕ[i=0:nh],                    (start = ϕ_i[i+1])
+        0.0    <= u[i=0:nh] <= u_max, (start = u_i[i+1])
+        -r_max <= r[i=0:nh] <= r_max, (start = r_i[i+1])
+        0.0 <= T,                     (start = T_i)
+        ω[t=0:nh, i=0:3, j=0:5] >= 0, (start = 0)
+    end)
+
+    @expressions(model, begin
+        δt, T * step
+    end)
+
+    @objective(model, Min, T)
+
+    # Dynamics
+    @constraints(model, begin
+        con_x[i=1:nh], x[i] == x[i-1] + δt * 0.5 * cos((ϕ[i] + ϕ[i-1]) * 0.5) * (u[i] + u[i-1])
+        con_y[i=1:nh], y[i] == y[i-1] + δt * 0.5 * sin((ϕ[i] + ϕ[i-1]) * 0.5) * (u[i] + u[i-1])
+        con_ϕ[i=1:nh], ϕ[i] == ϕ[i-1] + δt * 0.5 * (r[i-1] + r[i])
+        con_s[i=1:nh], abs(u[i]) + abs(r[i])*d_c <= u_max # cinématique
+    end)
+
+    # Collisions
+    @constraints(model, begin
+        con_c1[t=1:nh, i=0:3], transpose([A * transpose(S(ϕ[t])); C[[2*i+1, 2*i+2], :]]) * ω[t, i, :] == 0
+        con_c2[t=1:nh, i=0:3], transpose([b .+ A * transpose(S(ϕ[t])) * R(x[t], y[t]); d[[2*i+1, 2*i+2]]]) * ω[t, i, :] <= -epsilon
+    end)
+
+    # Boundary constraints
+    @constraints(model, begin
+        x_ic, x[0] == x_0
+        y_ic, y[0] == y_0
+        ϕ_ic, ϕ[0] == ϕ_0
+        u_ic, u[0] == u_0
+        r_ic, r[0] == r_0
+
+        x_fc, x[nh] == x_f
+        y_fc, y[nh] == y_f
+        ϕ_fc, ϕ[nh] == ϕ_f
+        u_fc, u[nh] == u_f
+        r_fc, r[nh] == r_f
+    end)
+
+    return model
+end
+
+# Load problem
+nh = 64
+model = robot_model(nh)
+# Solve problem with Ipopt.
+JuMP.set_optimizer(model, Ipopt.Optimizer)
+JuMP.Juset_optimizer_attribute(model, "max_iter", 6000)
+JuMP.optimize!(model)
+# Get solution
+
+
+x = JuMP.value.(model[:x]).data
+y = JuMP.value.(model[:y]).data
+ϕ = JuMP.value.(model[:ϕ]).data
+u = JuMP.value.(model[:u]).data
+r = JuMP.value.(model[:r]).data
+T = JuMP.value.(model[:T])
+
+show_results(x, y, ϕ, u, r, T; title = "Solution Optimale avec contraintes géométriques", metadata = ["JuMP with Ipopt"])
