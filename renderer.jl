@@ -14,18 +14,16 @@ end
 """
 	affiche la trajectoire
 """
-function plot_trajectory!(ax, data)
-	points = [(x, y) for (x, y, _) in data]
-	CairoMakie.lines!(ax, points, color=:red)
+function plot_trajectory!(ax, points; col=:red)
+	CairoMakie.lines!(ax, points, color=col)
 end
 
 """
 	affiche une trajectoire de référence
 """
-function plot_circle!(ax, robot_length, width)
+function plot_ref!(ax, r)
 
 	angle = LinRange(π, π/2, 36)
-	r = (width - robot_length) / 2
 	x = [0; r .* (cos.(angle) .+ 1); 3]
 	y = [-3; r .* (sin.(angle) .- 1); 0]
 
@@ -81,24 +79,25 @@ function corner(width, length, i)
 end
 
 
+function show_results(sol, ref; title="Solution optimale", metadata="")
+     x, y, ϕ, u, r, T = sol
 
-function show_results(x, y, phi, u, r, T; title="Solution optimale", metadata="")
     N = length(x)
-	pos = ((a, b, c) -> (a, b, c)).(x, y, phi)
+	pos = ((a, b, c) -> (a, b, c)).(x, y, ϕ)
 
-    f = CairoMakie.Figure(size = (512, 860))
+    f = CairoMakie.Figure(size = (512, 900))
     times = LinRange(0, T, N)
 
-    meta = join(metadata, "\n")
-    CairoMakie.Label(f[-1, :], "Solution optimale avec contraintes géométriques", fontsize = 18)
+    meta = "\n" * join(metadata, "\n")
+    CairoMakie.Label(f[-1, :], title, fontsize = 18)
     CairoMakie.Label(f[0, :], "temps de trajet : T = $(trunc(T, digits=3, base=10)) s\nN = $N pts" * meta, justification = :left, fontsize = 12, halign=:left)
 
     ax = CairoMakie.Axis(f[1, 1], aspect = CairoMakie.DataAspect(), alignmode=CairoMakie.Inside())
     plot_terrain!(ax, 2.4, 0.9)
 
     plot_positions!(ax, pos, (1.128, 0.720), 1)
-	plot_circle!(ax, 1.172, 2.4)
-    plot_trajectory!(ax, pos)
+    (traj -> plot_trajectory!(ax, ((a, b) -> (a, b)).(traj[1], traj[2]); col=:magenta)).(ref)
+    plot_trajectory!(ax, [(px, py) for (px, py, _) in pos])
     plot_endpoints!(ax, (0., -3., π/2), (3., 0., 0.))
 
     ax_u = CairoMakie.Axis(f[2, :], xlabel="temps", ylabel="commande u")

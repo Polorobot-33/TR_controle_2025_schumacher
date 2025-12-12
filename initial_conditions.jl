@@ -6,12 +6,11 @@ function init_straight(N, pos_0, pos_f, u)
     T = distance / u
 
     interp = LinearInterpolation([pos_0, pos_f], [0, N])
-    pos = interp(0:N)
+    pos = reduce(hcat, interp(0:N))
 
-    phi = atan(pos_f[2] - pos_0[2], pos_f[2] - pos_0[1])
+    phi = atan(pos_f[2] .- pos_0[2], pos_f[1] .- pos_0[1])
 
-
-    return pos[0], pos[1], fill(phi, N+1), fill(u, N+1), fill(0, N+1), T
+    return pos[1,:], pos[2,:], fill(phi, N+1), fill(u, N+1), fill(0, N+1), T
 end
 
 function init_arc(N::Int, y_0::Real, x_f::Real, u::Real, radius::Real)
