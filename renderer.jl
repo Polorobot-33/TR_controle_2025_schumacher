@@ -8,14 +8,17 @@ function plot_terrain!(ax, width, height)
   			(4, height/2),   (width/2, height/2),   (width/2, 2),
   			(-2, -height/2), (-width/2, -height/2), (-width/2, -4),
   			(4, -height/2),  (width/2, -height/2),  (width/2, -4)]
-  	CairoMakie.linesegments!(ax, points[[1, 2, 2, 3, 4, 5, 5, 6, 7, 8, 8, 9, 10, 11, 11, 12]], color=:blue)
+  	return CairoMakie.linesegments!(ax, points[[1, 2, 2, 3, 4, 5, 5, 6, 7, 8, 8, 9, 10, 11, 11, 12]], color=:blue)
 end
 
 """
 	affiche la trajectoire
 """
 function plot_trajectory!(ax, points; col=:red)
-	CairoMakie.lines!(ax, points, color=col)
+	return CairoMakie.lines!(ax, points, color=col)
+end
+function plot_trajectory!(ax, points)
+	return CairoMakie.lines!(ax, points)
 end
 
 """
@@ -27,14 +30,14 @@ function plot_ref!(ax, r)
 	x = [0; r .* (cos.(angle) .+ 1); 3]
 	y = [-3; r .* (sin.(angle) .- 1); 0]
 
-	CairoMakie.lines!(ax, x, y, color=:magenta)
+	return CairoMakie.lines!(ax, x, y, color=:magenta)
 end
 
 """
 	affichage du départ et de l'arrivée
 """
 function plot_endpoints!(ax, x0, xf)
-	CairoMakie.scatter!(ax, [x0[1:2], xf[1:2]], marker=:utriangle, color=:black, markersize=15)
+	return CairoMakie.scatter!(ax, [x0[1:2], xf[1:2]], marker=:utriangle, color=:black, markersize=15)
 end
 
 """
@@ -45,7 +48,7 @@ function plot_robot!(ax, pos, size)
 	w, l = size
 	
 	points = [(x, y) .+ Tuple(corner(ϕ, w, l, i)) for i in 1:5]
-	CairoMakie.lines!(ax, points, color=:green)
+	return CairoMakie.lines!(ax, points, color=:green)
 end
 
 """
