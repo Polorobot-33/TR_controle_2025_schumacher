@@ -3,7 +3,7 @@ using FiniteDiff
 using Ipopt
 using LinearAlgebra
 using Optimization
-using OptimizationMOI
+using OptimizationIpopt
 using Zygote
 using CairoMakie
 using Random
@@ -86,11 +86,13 @@ function problem_cons(res, x, p::Tuple)
 	r  = x[5:5:5*N]
 	T  = x[end]
 
+	dist = dimensions[end] # distance entre les roues et le centre du robot
+
 	# calculate constraints
-	speed_cons = [(speed -> U_max[1] - abs(speed)).(u_) ; (turn -> U_max[2] - abs(turn)).(r)]
+	speed_cons = [((speed, turn) -> U_max[1] - (abs(speed) + abs(turn*dist))).(u_, r) ; (turn -> U_max[2] - abs(turn)).(r)]
 	end_cons = [[x_[begin]; u_[begin]; r[begin]] .- cdt_0; [x_[end]; u_[end]; r[end]] .- cdt_f]
 	
-	res .= [dynamics_cons(x_, u_, r, T, N); end_cons; geom_cons(x_, dimensions, alpha); speed_cons; x[end]]
+	res .= [dynamics_cons(x_, u_, r, T, N); end_cons; geom_cons(x_, dimensions[1:2], alpha); speed_cons; x[end]]
 end
 
 
@@ -154,10 +156,10 @@ function objective(u::Vector, p::Tuple)
 	return u[end]
 end
 
-function solve_problem(x0::Vector{Float64}, U_max::Tuple{Float64, Float64}, cdt_0::NTuple{5, Float64}, cdt_f::NTuple{5, Float64}, dimensions::NTuple{4, Float64})
+function solve_problem(x0::Vector{Float64}, U_max::Tuple{Float64, Float64}, cdt_0::NTuple{5, Float64}, cdt_f::NTuple{5, Float64}, dimensions::NTuple{5, Float64})
 	# paramètres : N, U_max, x_0, x_f, dimensions géométriques
 	N = (length(x0) - 1) ÷ 5
-	params = (N, dimensions, U_max, cdt_0, cdt_f, 3.)
+	params = (N, dimensions, U_max, cdt_0, cdt_f, 4.)
 	
 	# initialisation des contraintes
 	# dynamiques : 3 * (N-1)
@@ -171,7 +173,10 @@ function solve_problem(x0::Vector{Float64}, U_max::Tuple{Float64, Float64}, cdt_
 	#ADTypes.AutoZygote()
 	optim_f = OptimizationFunction(objective, ADTypes.AutoZygote(), cons = problem_cons)
 	prob = Optimization.OptimizationProblem(optim_f, x0, params, lcons=lcons, ucons=ucons)
-	sol = solve(prob, Ipopt.Optimizer())
+	
+	opt = IpoptOptimizer(acceptable_tol = 1e-3)#, mu_strategy = "adaptive")
+	
+	sol = solve(prob, opt)
 
 	return sol.u
 end
@@ -253,7 +258,7 @@ function test(N)
 	end
 	push!(x0, T)
 
-    return solve_problem(x0, U_max, cdt_0, cdt_f, (1.128, 0.720, 2.4, 0.9))
+    return solve_problem(x0, U_max, cdt_0, cdt_f, (1.128, 0.720, 2.4, 0.9, 0.3))
 end
 
 """
