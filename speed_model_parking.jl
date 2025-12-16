@@ -14,11 +14,11 @@ nh = 500
 
 # conditions initales et finales (x, y, ϕ, u, r)
 cdt_0 = (-2.5, 2.0, 0, 0, 0)
-cdt_f = (0, 0.1, 0, 0, 0)
+cdt_f = (0, 0.05, 0, 0, 0)
 
 N_poly = 3
 N_faces = 2
-lp = 1.4 # longueur de la place de parking
+lp = 1.6 # longueur de la place de parking
 pp = 0.8 # profondeur de la place de parking
 C = [0 1; 1 0; 0 1; 0 -1; -1 0; 0 1]
 d = [pp/2; -lp/2; -pp/2; pp; -lp/2; pp/2]
