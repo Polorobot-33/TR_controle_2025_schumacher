@@ -2,10 +2,12 @@ using JuMP
 using CairoMakie
 using Random
 using LinearAlgebra
+using PoissonDiskSampling
 
 include("models.jl")
 include("renderer.jl")
 include("initial_conditions.jl")
+include("polygon.jl")
 
 
 f = CairoMakie.Figure(size = (512, 860))
@@ -13,18 +15,21 @@ ax = CairoMakie.Axis(f[1, 1], aspect = CairoMakie.DataAspect(), alignmode=CairoM
 
 
 
-nh = 100
+nh = 64
 
 # conditions initales et finales (x, y, ϕ, u, r)
-cdt_0 = (-6, 0, 0, 0, 0)
-cdt_f = ( 6, 0, 0, 0, 0)
+cdt_0 = (-8, 0, 0, 0, 0)
+cdt_f = ( 8, 0, 0, 0, 0)
 
 # matrices et vecteurs représentatifs des polygones
 poly_C = []
 poly_d = []
 outline = []
-N_poly = 8
-N_faces = 3
+#N_poly = 4
+N_faces = 5
+poly_area = 1;
+center = PoissonDiskSampling.generate(2.5, (-6, 6), (-3, 3))
+N_poly = length(center)
 
 function normalize(u)
     return u ./ norm(u)
@@ -49,7 +54,7 @@ function pointsToEdge(p1, p2, p3)
     return norm, d
 end
 
-
+#=
 for i in 1:N_poly
     local center = rand(Float64, 2)
     center .-= 0.5
@@ -66,8 +71,18 @@ for i in 1:N_poly
     append!(poly_d, (n -> n[2]).(edges))
 
     poly!(ax, points, strokecolor=:blue, strokewidth=1, color=:white)
-end
+end=#
 
+for c in center
+    points = convex_volume_polygon(N_faces, poly_area)
+    points = [p .+ c for p in points]
+
+    edges = [pointsToEdge(points[i], points[(i)%N_faces+1], points[(i+1)%N_faces+1]) for i in eachindex(points)]
+    append!(poly_C, (n -> n[1]).(edges))
+    append!(poly_d, (n -> n[2]).(edges))
+
+    poly!(ax, [Tuple(p) for p in points], strokecolor=:blue, strokewidth=1, color=:white)
+end
 
 model, init = robot_rect_custom_model(nh, cdt_0, cdt_f, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)))
 
