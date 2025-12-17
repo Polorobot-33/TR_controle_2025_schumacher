@@ -5,6 +5,7 @@ using LinearAlgebra
 
 include("models.jl")
 include("renderer.jl")
+include("initial_conditions.jl")
 
 
 f = CairoMakie.Figure(size = (512, 860))
