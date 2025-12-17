@@ -10,10 +10,10 @@ include("renderer.jl")
 
 # Load problem
 nh = 100
-model, init = robot_rect_model(nh)
+model, init = robot_rect_model(nh; epsilon_p = 1e-4)
 # Solve problem with Ipopt.
 JuMP.set_optimizer(model, Ipopt.Optimizer)
-JuMP.set_optimizer_attribute(model, "max_iter", 1000)
+JuMP.set_optimizer_attribute(model, "max_iter", 500)
 JuMP.optimize!(model)
 # Get solution
 

@@ -114,7 +114,7 @@ function robot_rect_model(nh; u_max_p=2.7, r_max_p=1.5, epsilon_p=1e-6)
     r_f = 0
 
     # etat initial
-    x_i, y_i, ϕ_i, u_i, r_i, T_i = init_arc(nh, -3, 3, u_max/2, 1)
+    x_i, y_i, ϕ_i, u_i, r_i, T_i = init_arc(nh, -3, 3, u_max/2, r_max*0.8, 0.5)
     #x_i, y_i, ϕ_i, u_i, r_i, T_i = init_straight(nh, [0, -3], [3, 0], u_max/2)
     step = 1 / nh
 
