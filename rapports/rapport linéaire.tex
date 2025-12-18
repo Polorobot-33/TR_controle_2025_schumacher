@@ -1,0 +1,153 @@
+\documentclass[a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[francais]{babel}
+\usepackage[a4paper]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\geometry{left=2.75cm, right=2cm, bottom=1cm, top=2cm}
+
+\title{TR Théorie du contrôle - Sujet 2 : Schumacher}
+\author{Paul Fraenkel}
+\date{}
+
+\sloppy
+
+\begin{document}
+	
+	\maketitle
+	
+	%\begin{abstract}
+	%\end{abstract}
+	
+	\tableofcontents
+	
+	\part{Commande en vitesses}
+	\section{Présentation du modèle}
+	En première approximation, on considère que le robot est commandé en vitesse horizontale $u$ et en vitesse de lacet $\Psi$, et en faisant cela on suppose donc qu'il y a roulement sans glissement au niveau du contact avec le sol. 
+	On modélise la dynamique du robot par les équations suivantes : 
+	$$
+	\begin{cases}
+		\dot x &= u cos(\psi) \\
+		\dot y &= u sin(\psi) \\
+		\dot \psi &= r
+	\end{cases}
+	$$
+	
+	\section{Modèle sans collisions}
+	But : se familiariser avec le problème et les outils d'optimisation.
+	Objectif : partir d'une position $\left(x_0, y_0, \psi_0, u_0, r_0\right)$ et aller à une position $\left(x_f, y_f, \psi_f, u_f, r_f\right)$ en minimisant le temps de déplacement T. 
+	Contraintes : 
+	$$
+	\begin{cases}
+		-u_{max} \leq u \leq u_{max} \\
+		-r_{max} \leq r \leq r_{max}
+	\end{cases}
+	$$
+	
+	Le problème est non-linéaire mais lisse, on peut donc utiliser un solveur numérique de points intérieurs (justifier pourquoi c'est un des plus adaptés)
+	
+	
+	\subsection{Méthode d'optimisation pour un système régit par des équations différentielles}
+	Il y a deux courants principaux pour l'optimisation d'équations différentielles : "optimize then discretize" et "discretize then optimize". On utilise ici la dernière : On discrétise l'équation différentielle selon un schéma défini (Euler explicite, Euler implicite, trapèzes, etc...), puis on utilise les égalités qui ne découlent comme contraintes de notre problème d'optimisation. \\
+	
+	
+	\noindent On note l'état $X = 
+	\begin{bmatrix}
+	x \\ y \\ \psi
+	\end{bmatrix}
+	$
+	et la commande $U = 
+	\begin{bmatrix}
+		u \\ r
+	\end{bmatrix}
+	$
+	
+	
+	
+	Cas du schéma d'Euler explicite avec N points : 
+	\begin{equation}
+		\begin{aligned}
+			\min_{X, U} \quad & T\\
+			\textrm{s.t.} \quad &
+			\begin{aligned}
+				\dot{X} &= B(X) \cdot U\\
+				X_0 &= \bar{X_0}\\
+				X_f &= \bar{X_f}
+			\end{aligned}
+		\end{aligned}
+	\end{equation}
+	Avec $\delta t = \frac{T}{N-1}$
+	et $B(X) = B(\psi) = 
+	\begin{bmatrix}
+		cos(\psi) & 0 \\
+		sin(\psi) & 0 \\
+		0 			& 1
+	\end{bmatrix}$
+	
+	\section{Test annexe : champ de polygones}
+	Objectif : mettre à l'épreuve le solveur en lui demandant de traverser un espace rempli de polygones convexes. 
+	
+	\subsection{Génération des polygones}
+	Pour des soucis de simplicité, les polygones ont tous le même  nombre de faces. Dans l'implémentation du fichier \texttt{speed\_model\_random\_terrain.jl}, j'ai utilisé des triangles pour avoir des polygones convexes.
+	
+	Ils sont générés en positionnant de manière uniforme un point central dans une zone rectangulaire délimitée. Les 3 sommets du triangle sont générés uniformément dans un carré autour du point central associé.
+	
+	Dans la méthode décrite dans l'article [nacofinal.pdf -> mettre la vrai référence], un polygone $P^{(i)}$ est représenté par une matrice $C^{(i)}$ et un vecteur $d^{(i)}$ de la manière suivante : 
+	\begin{equation}
+		P^{(i)} = \{  y \in \mathbb{R}^3  \; | \; C^{(i)}y \leq d^{(i)}\}
+	\end{equation}
+	
+	Une interprétation est la suivante :\\
+	Les lignes de $C^{(i)}$ sont les normales des faces, et les coefficients de $d^{(i)}$ associés sont les distances signées respectives de l'origine à ces faces.
+	\break
+	\\
+	\paragraph{Exemple}
+	Soit $O$ l'origine du repère, ${n}$ la normale à la face $j$ du polygone $P^{(i)}$ et $M^{(i, j)}$ un sommet de $P^{(i)}$ appartenant à la face $j$.
+	$$
+	\begin{cases}
+		C^{(i)}_j &= {n}^T\\
+		d^{(i)}_j &= {OM}^{(i, j)} \cdot {n}
+	\end{cases}
+	$$
+	
+	Pour obtenir les normales, on considère 2 sommets (consécutifs...), $a$ et $b$, dont on calcule un vecteur orthogonal : 
+	\begin{equation}
+		{n}^\star = 
+		\begin{bmatrix}
+			0 & -1\\
+			1 & 0
+		\end{bmatrix}
+		\cdot \frac{{ab}}{||{ab}||}
+	\end{equation}
+	
+	Soit c un autre sommet du polygone. 
+	\begin{equation}
+		{n} = 
+		\begin{cases}
+			+{n}^\star & \text{si} \quad {n}^\star \cdot  
+			{ac} \leq 0 \\
+			-{n}^\star & \text{sinon}\\
+		\end{cases}
+	\end{equation}
+	
+	\paragraph{}
+	
+	\subsection{Observations}
+	Les essais ont été réalisés avec 101 points.
+	L'algorithme de converge généralement assez lentement, sauf dans les cas où le robot peut atteindre l'objectif en ligne droite.
+	\\
+	Le modèle est initialisé avec une solution en ligne droite entre le point de départ et le point d'arrivée. L'optimisation privilégie en général les solutions qui en sont proches, parfois au prix de tomber sur des minima locaux infaisables.
+	
+	\section{Test annexe : Parking}
+	Demandons au robot d'effectuer un créneau dans une place de longueur $l$ et de profondeur $p$.
+	\\
+	Remarque : Avec la méthode utilisée pour décrire les collisions, il n'est pas obligatoire d'utiliser des polygones. Un polygone est représenté comme l'intersection de demi-espaces délimités par des droites (les faces du polygone). Il est donc possible de prendre des espaces ouverts comme "polygone".
+	\\
+	
+	La place de parking est modélisée par 3 
+	
+\end{document}
+
