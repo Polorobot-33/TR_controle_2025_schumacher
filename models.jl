@@ -255,3 +255,83 @@ function robot_rect_custom_model(nh, cdt_0, cdt_f, dims, C_p, d_p; u_max_p=2.7, 
 
     return model, (x_i, y_i)
 end
+
+function robot_rect_custom_polytop(nh, cdt_0, cdt_f, poly; u_max_p=2.7, r_max_p=1.5, d_min=1e-4)
+    rw_c = 0.72 # largeur du robot
+    rh_c = 1.128 # longueur du robot
+    d_c  = rw_c * 0.4 # espacement des roues ÷ 2
+    u_max = u_max_p # vitesse maximale d'une roue
+    r_max = r_max_p # vitesse maximale de rotation
+
+    # conditions initiales
+    x_0, y_0, ϕ_0, u_0, r_0 = cdt_0
+
+    # conditions finales
+    x_f, y_f, ϕ_f, u_f, r_f = cdt_f
+
+    # etat initial
+    x_i, y_i, ϕ_i, u_i, r_i, T_i = init_straight(nh, [x_0, y_0], [x_f, y_f], u_max/2)
+    step = 1 / nh
+
+    # contraintes de Collisions
+    N_poly = length(poly)
+    Ve = [(-rh_c/2) (rh_c/2) (rh_c/2) (-rh_c/2); (rw_c/2) (rw_c/2) (-rw_c/2) (-rw_c/2)]
+    Vo = [reduce(hcat, vertices) for vertices in poly]
+
+    R(ϕ) = [cos(ϕ) -sin(ϕ); sin(ϕ) cos(ϕ)]
+    tr(x, y) = [x ; y]
+
+    model = Model()
+
+    @variables(model, begin
+        x[i=0:nh],                    (start = x_i[i+1])
+        y[i=0:nh],                    (start = y_i[i+1])
+        ϕ[i=0:nh],                    (start = ϕ_i[i+1])
+        -u_max <= u[i=0:nh] <= u_max, (start = u_i[i+1])
+        -r_max <= r[i=0:nh] <= r_max, (start = r_i[i+1])
+        0.0 <= T,                     (start = T_i)
+        # collisions
+        ξ[t=0:nh, i=0:(N_poly-1), j=0:1], (start = 0.0)
+        μ_r[t=0:nh, i=0:(N_poly-1)], (start = 0.0)
+        μ_o[t=0:nh, i=0:(N_poly-1)], (start = 0.0)
+    end)
+
+    @expressions(model, begin
+        δt, T * step
+    end)
+
+    @objective(model, Min, T)
+
+    # Dynamics
+    @constraints(model, begin
+        con_x[i=1:nh], x[i] == x[i-1] + δt * 0.5 * cos((ϕ[i] + ϕ[i-1]) * 0.5) * (u[i] + u[i-1])
+        con_y[i=1:nh], y[i] == y[i-1] + δt * 0.5 * sin((ϕ[i] + ϕ[i-1]) * 0.5) * (u[i] + u[i-1])
+        con_ϕ[i=1:nh], ϕ[i] == ϕ[i-1] + δt * 0.5 * (r[i-1] + r[i])
+        con_s1[i=1:nh], -u_max <= u[i] + r[i]*d_c <= u_max # cinématique
+        con_s2[i=1:nh], -u_max <= u[i] - r[i]*d_c <= u_max # cinématique
+    end)
+
+    # Collisions
+    @constraints(model, begin
+        con_c1[t=1:nh, i=0:(N_poly-1)], transpose(ξ[t, i, :]) * ξ[t, i, :] / 4 + μ_r[t, i] + μ_o[t, i] + d_min^2 <= 0
+        con_c2[t=1:nh, i=0:(N_poly-1)], -transpose(R(ϕ[t]) * Ve .+ tr(x[t], y[t])) * ξ[t, i, :] .- μ_r[t, i] <= 0
+        con_c3[t=1:nh, i=0:(N_poly-1)], transpose(Vo[i+1]) * ξ[t, i, :] .- μ_o[t, i] <= 0
+    end)
+
+    # Boundary constraints
+    @constraints(model, begin
+        x_ic, x[0] == x_0
+        y_ic, y[0] == y_0
+        ϕ_ic, ϕ[0] == ϕ_0
+        u_ic, u[0] == u_0
+        r_ic, r[0] == r_0
+
+        x_fc, x[nh] == x_f
+        y_fc, y[nh] == y_f
+        ϕ_fc, ϕ[nh] == ϕ_f
+        u_fc, u[nh] == u_f
+        r_fc, r[nh] == r_f
+    end)
+
+    return model, (x_i, y_i)
+end

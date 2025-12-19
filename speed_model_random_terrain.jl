@@ -22,10 +22,13 @@ cdt_0 = (-8, 0, 0, 0, 0)
 cdt_f = ( 8, 0, 0, 0, 0)
 
 # matrices et vecteurs représentatifs des polygones
-poly_C = []
-poly_d = []
-outline = []
-#N_poly = 4
+# collision using polyhedra
+# poly_C = []
+# poly_d = []
+
+# collision using polytop
+poly = []
+
 N_faces = 5
 poly_area = 1;
 center = PoissonDiskSampling.generate(2.5, (-6, 6), (-3, 3))
@@ -77,14 +80,22 @@ for c in center
     points = convex_volume_polygon(N_faces, poly_area)
     points = [p .+ c for p in points]
 
-    edges = [pointsToEdge(points[i], points[(i)%N_faces+1], points[(i+1)%N_faces+1]) for i in eachindex(points)]
-    append!(poly_C, (n -> n[1]).(edges))
-    append!(poly_d, (n -> n[2]).(edges))
+    # collision polyhedra
+    # edges = [pointsToEdge(points[i], points[(i)%N_faces+1], points[(i+1)%N_faces+1]) for i in eachindex(points)]
+    # append!(poly_C, (n -> n[1]).(edges))
+    # append!(poly_d, (n -> n[2]).(edges))
+
+    # collision polytop
+    push!(poly, points)
 
     poly!(ax, [Tuple(p) for p in points], strokecolor=:blue, strokewidth=1, color=:white)
 end
 
-model, init = robot_rect_custom_model(nh, cdt_0, cdt_f, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)))
+# collision polyhedra
+# model, init = robot_rect_custom_model(nh, cdt_0, cdt_f, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)))
+
+# collision polytop
+model, init = robot_rect_custom_polytop(nh, cdt_0, cdt_f, poly; d_min=1e-1)
 
 JuMP.set_optimizer(model, Ipopt.Optimizer)
 JuMP.set_optimizer_attribute(model, "max_iter", 1000)
