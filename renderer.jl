@@ -17,6 +17,9 @@ end
 function plot_trajectory!(ax, points; col=:red)
 	return CairoMakie.lines!(ax, points, color=col)
 end
+function plot_trajectory!(ax, points; col=:red, label="")
+	return CairoMakie.lines!(ax, points, color=col, label=label)
+end
 function plot_trajectory!(ax, points)
 	return CairoMakie.lines!(ax, points)
 end
