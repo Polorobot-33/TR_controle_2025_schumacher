@@ -7,7 +7,7 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 
-\geometry{left=2.75cm, right=2cm, bottom=1cm, top=2cm}
+\geometry{left=2.75cm, right=2cm, bottom=2cm, top=2cm}
 
 \title{TR Théorie du contrôle - Sujet 2 : Schumacher}
 \author{Paul Fraenkel}
@@ -67,8 +67,9 @@
 	
 	
 	
-	Cas du schéma d'Euler explicite avec N points : 
+	\noindent Le problème à discrétiser est le suivant : 
 	\begin{equation}
+		\label{eqn:prbm_cinématique_sc}
 		\begin{aligned}
 			\min_{X, U} \quad & T\\
 			\textrm{s.t.} \quad &
@@ -76,6 +77,20 @@
 				\dot{X} &= B(X) \cdot U\\
 				X_0 &= \bar{X_0}\\
 				X_f &= \bar{X_f}
+			\end{aligned}
+		\end{aligned}
+	\end{equation}
+	
+	\noindent Cas du schéma d'Euler avec la méthode des trapèzes sur N+1 points : 
+	\begin{equation}
+		\label{eqn:prbm_cinématique_discret_sc}
+		\begin{aligned}
+			\min_{X, U} \quad & T\\
+			\textrm{s.t.} \quad &
+			\begin{aligned}
+				X_{i+1} &= X_{i} + \frac{\delta t}{2} (B(X_i) \cdot U_i + B(X_{i+1}) \cdot U_{i+1})\\
+				X_0 &= \bar{X_0}\\
+				X_N &= \bar{X_N}
 			\end{aligned}
 		\end{aligned}
 	\end{equation}
@@ -87,18 +102,96 @@
 		0 			& 1
 	\end{bmatrix}$
 	
+	\subsection{Recherche analytique de la forme des solutions optimales}
+	On va utiliser ici le principe du maximum de Pontryagin pour essayer d'en apprendre le plus possible sur la forme des solutions du problème \ref{eqn:prbm_cinématique_sc}.\\
+	\\
+	
+	\subsubsection{Définition des grandeurs}
+	Le principe est défini de la manière suivante : \\
+	On veut minimiser la fonction objectif $$J(u) = h(x(tf), tf) + \int_{t_0}^{t_f}g(x(t), u(t))dt$$ pour le système dynamique $\dot x = a(x(t), u(t), t)$.
+	On considère le Hamiltonien général
+	$$\mathcal{H}(x(t)) = g(x(t), u(t), t) + p^T(t)[a(x(t), u(t), t)]$$
+	dans le cas du problème en temps optimal, on a : $g = 1$ et $h = 0$ de manière à avoir $J(u) = tf$.\\
+	Le Hamiltonien à considérer pour notre problème est donc : 
+	\begin{equation}
+		\mathcal{H}(x(t), u(t), p(t)) = 1 + p^T[B(x(t)) \cdot u(t)]
+	\end{equation}
+	
+	\subsubsection{Conditions nécessaires d'optimalité de Pontryagin}
+	La solution $(x^\star, u^\star, p^\star)$ doit vérifier les conditions nécessaires d'optimalité suivantes :
+	\begin{itemize}
+		\item \begin{equation}
+			\label{eqn:pontryagin_raw_1}
+			\dot x^\star = \frac{\partial \mathcal{H}}{\partial p}(x^\star(t), u^\star(t), p^\star(t))
+		\end{equation}
+		\item \begin{equation}
+			\label{eqn:pontryagin_raw_2}
+			\dot p^\star = -\frac{\partial \mathcal{H}}{\partial x}(x^\star(t), u^\star(t), p^\star(t))
+		\end{equation}
+		\item \text{Pour chaque composante de la commande $u_i$ : } \begin{equation}
+			\label{eqn:pontryagin_raw_3}
+			\begin{cases}
+				u_i^\star(t) &= u_{i, max} \quad \text{si} \quad {p^\star}^T(t)b_i(x^\star(t)) < 0 \\
+				u_i^\star(t) &= u_{i, min} \quad \text{si} \quad {p^\star}^T(t)b_i(x^\star(t)) > 0 \\
+				u_i^\star(t) &\text{indéterminé sinon}
+			\end{cases}
+		\end{equation}
+		Avec $b_i(x(t))$ la colonne $i$ de $B(x(t))$
+		\item \begin{equation}
+			\label{eqn:pontryagin_raw_4}
+			\left[ \frac{\partial h}{\partial x}(x^\star(t_f), t_f) - p^star(t_f) \right]^T \delta x_f + \left[  \mathcal{H}(x^\star(t_f), u^\star{t_f}, p^\star(t_f), t_f) + \frac{\partial h}{\partial t} \right] \delta t_f = 0
+		\end{equation}
+	\end{itemize}
+	
+	
+	\paragraph{Exploitation des conditions}
+	La condition \ref{eqn:pontryagin_raw_1} donne : $\dot x^\star(t) = B(x(t))u(t)$, la dynamique est bien respectée.\\
+	La condition \ref{eqn:pontryagin_raw_2} donne : $\dot p^\star(t) = {p^\star} ^T(t) \frac{\partial B}{\partial \psi}(x^\star(t), u^\star(t))$. On en déduit
+	\begin{equation}
+		\begin{cases}
+			p^\star_1(t) &= p^\star_1(0) = p_1 \\
+			p^\star_2(t) &= p^\star_2(0) = p_2 \\
+			p^\star_3(t) &= -u_1(t) \begin{bmatrix} p1 \\ p2 \end{bmatrix} \cdot
+			\begin{bmatrix} -sin(\psi(t)) \\ cos(\psi(t)) \end{bmatrix} \\
+		\end{cases}
+	\end{equation}
+	
+	\noindent Exploitons la condition \ref{eqn:pontryagin_raw_3} :\\
+	Si on se trouve sur un arc singulier pour la vitesse : ${p^\star}^T(t)b_1(x^\star(t)) = 0$, ce qui se réécrit $\begin{bmatrix} p1 \\ p2 \end{bmatrix} \cdot \begin{bmatrix} cos(\psi(t)) \\ sin(\psi(t)) \end{bmatrix} = 0$ La trajectoire est rectiligne, perpendiculaire au vecteur $\begin{bmatrix} p1 \\ p2 \end{bmatrix}$.
+	Si on se trouve sur un arc singulier pour la rotation : ${p^\star}^T(t)b_2(x^\star(t)) = 0$, donc $p_3^\star(t) = 0$.\\ D'après le dernier résultat de la condition \ref{eqn:pontryagin_raw_2}, $p^\star_3(t) = -u_1(t) \begin{bmatrix} p1 \\ p2 \end{bmatrix} \cdot	\begin{bmatrix} -sin(\psi(t)) \\ cos(\psi(t)) \end{bmatrix} = 0 \\
+	\Leftrightarrow \begin{cases}
+		u_1(t) = 0 \\ \text{ou} \\ \begin{bmatrix} p1 \\ p2 \end{bmatrix} \cdot \begin{bmatrix} -sin(\psi(t)) \\ cos(\psi(t)) \end{bmatrix} = 0 \quad \text{La trajectoire est parallèle au vecteur} \begin{bmatrix} p1 \\ p2 \end{bmatrix}
+	\end{cases}$\\
+	
+	
+	Comme le vecteur $\begin{bmatrix} p1 \\ p2 \end{bmatrix}$ apparaît plusieurs fois, nommons le $v$.
+	
+	\paragraph{Interprétation}
+	Jusqu'ici, on sait que le robot ne tourne pas s'il se déplace dans la direction du vecteur $v$. Cela vient remettre en cause le cas où on se trouverait sur un arc singulier en vitesse qui prédit aussi que la trajectoire est rectiligne mais perpendiculaire au vecteur $v$. On en déduit que les arcs singuliers pour la vitesse sont instables. La vitesse atteint donc tout le temps ses extrema, sauf en des points singuliers où le robot est perpendiculaire au vecteur $v$.
+	
 	\section{Test annexe : champ de polygones}
 	Objectif : mettre à l'épreuve le solveur en lui demandant de traverser un espace rempli de polygones convexes. 
 	
 	\subsection{Génération des polygones}
-	Pour des soucis de simplicité, les polygones ont tous le même  nombre de faces. Dans l'implémentation du fichier \texttt{speed\_model\_random\_terrain.jl}, j'ai utilisé des triangles pour avoir des polygones convexes.
+	Pour des soucis de simplicité, les polygones ont tous le même  nombre de faces.
+	
+	\subsubsection{Approche naïve}
+	Dans l'implémentation du fichier \texttt{speed\_model\_random\_terrain.jl}, j'ai utilisé des triangles pour avoir des polygones convexes.
 	
 	Ils sont générés en positionnant de manière uniforme un point central dans une zone rectangulaire délimitée. Les 3 sommets du triangle sont générés uniformément dans un carré autour du point central associé.
 	
+	\subsubsection{Algorithm de Valtr}
+	Afin de générer des polygones convexes avec un nombre de sommets défini, on peut utiliser l'algorithme de Valtr, qui a le bon goût d'être de complexité linéaire contrairement aux algorithmes de rejet. Le principe utilisé est de générer des vecteurs aléatoires, tels que leur somme soit nulle, puis de les ordonner par orientation afin de garantir la convexité du polygone.\\
+	Additionnellement, on peut adapter leur échelle pour qu'ils aient une aire spécifiée.
+	
+	
+	\subsection{Représentation des polyèdres convexes}
+	\subsubsection{Représentation par ses faces}
 	Dans la méthode décrite dans l'article [nacofinal.pdf -> mettre la vrai référence], un polygone $P^{(i)}$ est représenté par une matrice $C^{(i)}$ et un vecteur $d^{(i)}$ de la manière suivante : 
 	\begin{equation}
 		P^{(i)} = \{  y \in \mathbb{R}^3  \; | \; C^{(i)}y \leq d^{(i)}\}
 	\end{equation}
+	Les polyèdres sont représentés par l'intersection non vide d'un nombre fini de demi-espaces fermés.
 	
 	Une interprétation est la suivante :\\
 	Les lignes de $C^{(i)}$ sont les normales des faces, et les coefficients de $d^{(i)}$ associés sont les distances signées respectives de l'origine à ces faces.
@@ -133,7 +226,16 @@
 		\end{cases}
 	\end{equation}
 	
-	\paragraph{}
+	\subsubsection{Représentation par ses sommets}
+	Il existe une autre représentation d'un polyèdre convexe, qui utilise cette fois-ci ses sommets. Étant donné un ensemble de points $P = \{ s_1, ..., s_n\} $, un point $x$ appartient à l'enveloppe convexe de $P$ ssi
+	$$
+	\exists \{\lambda_1, \lambda_n \} \quad
+	\text{tq} \begin{cases}
+		\sum_{i=1}^n\lambda_i s_i = x \\
+		\sum_{i=1}^n\lambda_i = 1 \\
+		\forall i \in [1,n]\quad \lambda_i \geq 0
+	\end{cases}
+	$$
 	
 	\subsection{Observations}
 	Les essais ont été réalisés avec 101 points.
