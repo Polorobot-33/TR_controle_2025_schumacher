@@ -9,13 +9,14 @@ include("renderer.jl")
 include("initial_conditions.jl")
 include("polygon.jl")
 
+#Random.seed!(2);
 
 f = CairoMakie.Figure(size = (512, 860))
 ax = CairoMakie.Axis(f[1, 1], aspect = CairoMakie.DataAspect(), alignmode=CairoMakie.Inside())
 
 
 
-nh = 64
+nh = 100
 
 # conditions initales et finales (x, y, ϕ, u, r)
 cdt_0 = (-8, 0, 0, 0, 0)
@@ -23,11 +24,11 @@ cdt_f = ( 8, 0, 0, 0, 0)
 
 # matrices et vecteurs représentatifs des polygones
 # collision using polyhedra
-# poly_C = []
-# poly_d = []
+poly_C = []
+poly_d = []
 
 # collision using polytop
-poly = []
+# poly = []
 
 N_faces = 5
 poly_area = 1;
@@ -81,25 +82,33 @@ for c in center
     points = [p .+ c for p in points]
 
     # collision polyhedra
-    # edges = [pointsToEdge(points[i], points[(i)%N_faces+1], points[(i+1)%N_faces+1]) for i in eachindex(points)]
-    # append!(poly_C, (n -> n[1]).(edges))
-    # append!(poly_d, (n -> n[2]).(edges))
+    edges = [pointsToEdge(points[i], points[(i)%N_faces+1], points[(i+1)%N_faces+1]) for i in eachindex(points)]
+    append!(poly_C, (n -> n[1]).(edges))
+    append!(poly_d, (n -> n[2]).(edges))
 
     # collision polytop
-    push!(poly, points)
+    # push!(poly, points)
 
     poly!(ax, [Tuple(p) for p in points], strokecolor=:blue, strokewidth=1, color=:white)
 end
 
+model = Model()
+dynamic_model!(model, nh, cdt_0, cdt_f)
+
 # collision polyhedra
 # model, init = robot_rect_custom_model(nh, cdt_0, cdt_f, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)))
+#model, init = robot_rect_custom_polyhedra(nh, cdt_0, cdt_f, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)))
+Npoly_rect_2017_collisions!(model, nh, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)))
 
 # collision polytop
-model, init = robot_rect_custom_polytop(nh, cdt_0, cdt_f, poly; d_min=1e-1)
+# model, init = robot_rect_custom_polytop(nh, cdt_0, cdt_f, poly; d_min=1e-1)
 
+solve!(model, max_iter=1000)
+#=
 JuMP.set_optimizer(model, Ipopt.Optimizer)
 JuMP.set_optimizer_attribute(model, "max_iter", 1000)
 JuMP.optimize!(model)
+=#
 
 x = JuMP.value.(model[:x]).data
 y = JuMP.value.(model[:y]).data

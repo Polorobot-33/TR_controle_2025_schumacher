@@ -41,7 +41,8 @@ end
 
 function corner_cons(ϕ, x, y, l1, l2, rw, rh, alpha, i)
 	c = corner(ϕ, rw, rh, i) .+ [x, y]
-	return 1 - smooth_minmax(abs(c[1]) / (l1/2), abs(c[2]) / (l2/2), -alpha)
+	return [abs(c[1]) / (l1/2), abs(c[2]) / (l2/2)]
+	#return 1 - smooth_minmax(abs(c[1]) / (l1/2), abs(c[2]) / (l2/2), -alpha)
 end
 
 function robot_corner_cons(ϕ::Real, x::Real, y::Real, l1::Real, l2::Real, rw::Real, rh::Real, alpha::Float64, i::Int)
@@ -50,13 +51,16 @@ function robot_corner_cons(ϕ::Real, x::Real, y::Real, l1::Real, l2::Real, rw::R
 	# calculate the coordinates of the corner c in the base of the robot
 	p = rotate(c .- (x, y), -ϕ)
 	
-	return smooth_minmax(abs(p[1]) / (rw/2), abs(p[2]) / (rh/2), alpha) - 1
+	#return smooth_minmax(abs(p[1]) / (rw/2), abs(p[2]) / (rh/2), alpha) - 1
+	return [abs(p[1]) / (rw/2), abs(p[2]) / (rh/2)]
 end
 
 function single_geom_cons(x::Vector, dimensions::Tuple, alpha::Float64)
 	x_, y_, ϕ_ = x
 	rw, ry, l1, l2 = dimensions
 	
+
+
 	return [[corner_cons(ϕ_, x_, y_, l1, l2, rw, ry, alpha, i) for i in 1:4]; [robot_corner_cons(ϕ_, x_, y_, l1, l2, rw, ry, alpha, t) for t in 1:4]]
 end
 
@@ -65,21 +69,32 @@ function geom_cons(x::Vector, dimensions::Tuple, alpha::Float64)
 	return reduce(vcat, cons)#collect(Iterators.flatten(cons))
 end
 
+function complement_cons(comp::Vector, x::Vector, epsilon::Float64)
+	x_plus = comp[1:2:end]
+	x_minus = comp[2:2:end]
+
+	return [x_plus .- x_minus .- x; x_plus; x_minus; epsilon .- (x_plus .* x_minus)]
+end
+
 function problem_cons(res, x, p::Tuple)
 	# unpack the parameters
-	N, dimensions, U_max, cdt_0, cdt_f, alpha = p
+	N, dimensions, U_max, cdt_0, cdt_f, epsilon = p
 	
 	# unpack the optimization vector
 	x_ = [[x[i], x[i+1], x[i+2]] for i in 1:5:5*N]
 	u_ = x[4:5:5*N]
 	r  = x[5:5:5*N]
+	comp = x[5*N+1:end-1]
 	T  = x[end]
+
+	# calculate geometric collision variables
+	geom = geom_variables(x_, dimensions)
 
 	# calculate constraints
 	speed_cons = [(speed -> U_max[1] - abs(speed)).(u_) ; (turn -> U_max[2] - abs(turn)).(r)]
 	end_cons = [[x_[begin]; u_[begin]; r[begin]] .- cdt_0; [x_[end]; u_[end]; r[end]] .- cdt_f]
 	
-	res .= [dynamics_cons(x_, u_, r, T, N); end_cons; geom_cons(x_, dimensions, alpha); speed_cons; x[end]]
+	res .= [dynamics_cons(x_, u_, r, T, N); end_cons; complement_cons(comp, epsilon); geom_cons(x_, dimensions, alpha); speed_cons; x[end]]
 end
 
 function lerp(a, b, x)
@@ -139,8 +154,14 @@ function solve_problem(x0::Vector{Float64}, U_max::Tuple{Float64, Float64}, cdt_
 	params = (N, dimensions, U_max, cdt_0, cdt_f, 3.)
 	
 	# initialisation des contraintes
-	lcons = zeros(3 * (N-1) + 10 + 2*N + 8*N + 1)
-	ucons = [zeros(3 * (N-1) + 10); fill(Inf,2*N + 8*N + 1)]
+	# dynamiques : 3 * (N-1)
+	# conditions initiales et finales : 10
+	# constraintes de complémentarité : 32 * N (8 égalités, 24 inégalités)
+	# vitesses maximales : 2 * N
+	# géométriques : 8 * N
+	# temps : 1
+	lcons = zeros(3 * (N-1) + 10 + 32*N + 2*N + 8*N + 1)
+	ucons = [zeros(3 * (N-1) + 10 + 8*N); fill(Inf,24*N + 2*N + 8*N + 1)]
 
 	#ADTypes.AutoZygote()
 	optim_f = OptimizationFunction(objective, ADTypes.AutoZygote(), cons = problem_cons)

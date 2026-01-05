@@ -26,7 +26,7 @@ poly = []
 
 N_faces = 5
 poly_area = 1;
-center = PoissonDiskSampling.generate(2.5, (-6, 6), (-3, 3))
+center = PoissonDiskSampling.generate(2.5, (-4, 4), (-3, 3))
 N_poly = length(center)
 
 function normalize(u)
@@ -114,7 +114,7 @@ f = CairoMakie.Figure(size = (792, 512))
 infos = GridLayout()
 plots = GridLayout()
 
-times = LinRange(0, T, nh+1)
+#times = LinRange(0, T, nh+1)
 
 #legend = axislegend(ax)#/, [m1, m2, m3], ["modèle 2012", "modèle 2017", "modèle 2024"], alignmode = Inside());
 #infos[3, 1] = legend
