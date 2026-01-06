@@ -9,14 +9,14 @@ include("renderer.jl")
 include("initial_conditions.jl")
 include("polygon.jl")
 
-#Random.seed!(2);
+Random.seed!(7);# 7 / 1 / 6
 
 f = CairoMakie.Figure(size = (512, 860))
 ax = CairoMakie.Axis(f[1, 1], aspect = CairoMakie.DataAspect(), alignmode=CairoMakie.Inside())
 
 
 
-nh = 100
+nh = 99
 
 # conditions initales et finales (x, y, ϕ, u, r)
 cdt_0 = (-8, 0, 0, 0, 0)
@@ -28,7 +28,7 @@ poly_C = []
 poly_d = []
 
 # collision using polytop
-# poly = []
+poly = []
 
 N_faces = 5
 poly_area = 1;
@@ -87,7 +87,7 @@ for c in center
     append!(poly_d, (n -> n[2]).(edges))
 
     # collision polytop
-    # push!(poly, points)
+    push!(poly, points)
 
     poly!(ax, [Tuple(p) for p in points], strokecolor=:blue, strokewidth=1, color=:white)
 end
@@ -98,7 +98,8 @@ dynamic_model!(model, nh, cdt_0, cdt_f)
 # collision polyhedra
 # model, init = robot_rect_custom_model(nh, cdt_0, cdt_f, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)))
 #model, init = robot_rect_custom_polyhedra(nh, cdt_0, cdt_f, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)))
-Npoly_rect_2017_collisions!(model, nh, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)))
+Npoly_rect_2017_collisions!(model, nh, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)); kappa=20)
+#Npoly_rect_2023_collisions!(model, nh, poly)
 
 # collision polytop
 # model, init = robot_rect_custom_polytop(nh, cdt_0, cdt_f, poly; d_min=1e-1)
@@ -128,11 +129,21 @@ plot_positions!(ax, pos, (1.128, 0.720), 1)
 plot_trajectory!(ax, [(px, py) for (px, py, _) in pos], col=:red)
 plot_endpoints!(ax, cdt_0[1:3], cdt_f[1:3])
 
-ax_u = CairoMakie.Axis(f[2, :], xlabel="temps", ylabel="commande u")
-ax_r = CairoMakie.Axis(f[3, :], xlabel="temps", ylabel="commande r")
+ax_u = CairoMakie.Axis(f[2, :], xlabel="temps", ylabel="commande u (m/s)")
+ax_r = CairoMakie.Axis(f[3, :], xlabel="temps", ylabel="commande r (rad/s)")
 CairoMakie.linkxaxes!(ax_u, ax_r)
 CairoMakie.lines!(ax_u, times, u)
 CairoMakie.lines!(ax_r, times, r)
+
+
+ul = JuMP.value.(model[:ul]).data
+ur = JuMP.value.(model[:ur]).data
+ax_ulr = CairoMakie.Axis(f[4, :], xlabel="temps", ylabel="tensions (V)")
+CairoMakie.linkxaxes!(ax_ulr, ax_r)
+CairoMakie.lines!(ax_ulr, times, ul, label="ul")
+CairoMakie.lines!(ax_ulr, times, ur, label="ur")
+axislegend(ax_ulr)
+
 
 CairoMakie.rowsize!(f.layout, 1, CairoMakie.Aspect(1, 1.0))
 
