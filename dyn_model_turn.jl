@@ -8,34 +8,32 @@ include("initial_conditions.jl")
 f = CairoMakie.Figure(size = (512, 892))
 ax = CairoMakie.Axis(f[1, 1], aspect = CairoMakie.DataAspect(), alignmode=CairoMakie.Inside())
 
-nh = 109
+nh = 99
 
 # conditions initales et finales (x, y, ϕ, u, r)
 cdt_0 = (0,  1, 0, 3, 0)
-cdt_f = (3, -3, 0, 3, 0)
+cdt_f = (3, -3.5, 0, 3, 0)
 
 model = Model()
-dynamic_model_slide!(model, nh, cdt_0, cdt_f; m=10)
+dynamic_model_slide2!(model, nh, cdt_0, cdt_f; m=10, μ=0.1)
 
 # collisions
-l1_c = 0.2 # largeur du mur
+l1_c = 0.5 # largeur du mur
 l2_c = 3 # longueur du mur 
-l3_c = 2 # espacement entre les virages
+l3_c = 2.5 # espacement entre les virages
 C = [0 1; 1 0; 0 -1;   0 1; -1 0; 0 -1]
 d = [l1_c/2; l2_c; l1_c/2;  l1_c/2-l3_c; 0; l1_c/2+l3_c]
+poly = [[[-10; l1_c/2], [l2_c; l1_c/2], [l2_c; -l1_c/2], [-10; -l1_c/2]],
+        [[20; l1_c/2-l3_c], [0; l1_c/2-l3_c], [0; -l1_c/2-l3_c], [20; -l1_c/2-l3_c]]]
 
-# collision polyhedra
-Npoly_rect_2017_collisions!(model, nh, (2, 3), C, d; kappa=150)
 
-# collision polytop
-# model, init = robot_rect_custom_polytop(nh, cdt_0, cdt_f, poly; d_min=1e-1)
+#Npoly_rect_2012_collisions!(model, nh, (2, 3), C, d)#; epsilon=1e-7)
+Npoly_rect_2017_penetration_collisions!(model, nh, (2, 3), C, d; kappa=1e+3)
+#Npoly_rect_2023_collisions!(model, nh, poly)#; epsilon=1e-7)
 
-solve!(model, max_iter=1000)
-#=
-JuMP.set_optimizer(model, Ipopt.Optimizer)
-JuMP.set_optimizer_attribute(model, "max_iter", 1000)
-JuMP.optimize!(model)
-=#
+solve!(model, max_iter=2000)
+
+
 
 x = JuMP.value.(model[:x]).data
 y = JuMP.value.(model[:y]).data
@@ -61,8 +59,8 @@ linkxaxes!(ax_a, ax_r)
 lines!(ax_a, times, JuMP.value.(model[:a]).data)
 lines!(ax_r, times, JuMP.value.(model[:r]).data)
 
-ax_sgn = Axis(f[4, :], xlabel="temps", ylabel="sgn(n(ϕ)^T v)")
-lines!(ax_sgn, times, JuMP.value.(model[:sign]).data)
+ax_F = Axis(f[4, :], xlabel="temps", ylabel="F (N)")
+lines!(ax_F, times, JuMP.value.(model[:F]).data)
 #lines!(ax_sgn, times, (JuMP.value.(model[:xplus]).data .- JuMP.value.(model[:xmoins]).data))
 #lines!(ax_sgn, times, (transpose.(JuMP.value.(model[:e_n]).data) .* JuMP.value.(model[:v]).data))
 #=

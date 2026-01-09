@@ -1,4 +1,5 @@
 using CairoMakie
+CairoMakie.activate!(type = "svg")
 
 """
 	affiche les obstacles
@@ -43,14 +44,18 @@ function plot_endpoints!(ax, x0, xf)
 	return CairoMakie.scatter!(ax, [x0[1:2], xf[1:2]], marker=:utriangle, color=:black, markersize=15)
 end
 
+function robot_points(pos, size)
+	x, y, ϕ = pos
+	w, l = size
+	
+	return [(x, y) .+ Tuple(corner(ϕ, w, l, i)) for i in 1:5]
+end
+
 """
 	déssine un rectangle représentant le robot
 """
 function plot_robot!(ax, pos, size)
-	x, y, ϕ = pos
-	w, l = size
-	
-	points = [(x, y) .+ Tuple(corner(ϕ, w, l, i)) for i in 1:5]
+	points = robot_points(pos, size)
 	return CairoMakie.lines!(ax, points, color=:green)
 end
 
@@ -116,4 +121,24 @@ function show_results(sol, ref; title="Solution optimale", metadata="")
     CairoMakie.rowsize!(f.layout, 1, CairoMakie.Aspect(1, 1.0))
 
 	return f
+end
+
+function make_animation(x, y, ϕ, terrain)
+	pos = ((a, b, c) -> (a, b, c)).(x, y, ϕ)
+	nh = length(pos)
+	framerate = 25
+	timestamps = 1:nh
+
+	fig = Figure(size=(512, 512))
+	axanim = Axis(fig[1, 1], aspect = CairoMakie.DataAspect())
+	terrain(axanim)#plot_terrain!(axanim, l1_c, l2_c)
+	plot_trajectory!(axanim, [(px, py) for (px, py, _) in pos], col=:red)
+	time = Observable(1)
+	robot_anim = @lift(robot_points((x[$time], y[$time], ϕ[$time]), (1.128, 0.720)))
+	lines!(axanim, robot_anim, color=:green)
+
+	record(fig, "time_animation.mp4", timestamps;
+    	    framerate = framerate) do t
+    	time[] = t
+	end
 end

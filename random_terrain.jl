@@ -9,14 +9,14 @@ include("renderer.jl")
 include("initial_conditions.jl")
 include("polygon.jl")
 
-Random.seed!(7);# 7 / 1 / 6
+Random.seed!(7); # 3, 7 (5 fail)
 
-f = CairoMakie.Figure(size = (512, 860))
+f = CairoMakie.Figure(size = (512, 920))
 ax = CairoMakie.Axis(f[1, 1], aspect = CairoMakie.DataAspect(), alignmode=CairoMakie.Inside())
 
 
 
-nh = 99
+nh = 64
 
 # conditions initales et finales (x, y, ϕ, u, r)
 cdt_0 = (-8, 0, 0, 0, 0)
@@ -32,7 +32,7 @@ poly = []
 
 N_faces = 5
 poly_area = 1;
-center = PoissonDiskSampling.generate(2.5, (-6, 6), (-3, 3))
+center = PoissonDiskSampling.generate(2.8, (-6, 6), (-4, 4))
 N_poly = length(center)
 
 function normalize(u)
@@ -93,18 +93,13 @@ for c in center
 end
 
 model = Model()
-dynamic_model!(model, nh, cdt_0, cdt_f)
+dynamic_model!(model, nh, cdt_0, cdt_f; m=105)
 
-# collision polyhedra
-# model, init = robot_rect_custom_model(nh, cdt_0, cdt_f, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)))
-#model, init = robot_rect_custom_polyhedra(nh, cdt_0, cdt_f, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)))
-Npoly_rect_2017_collisions!(model, nh, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)); kappa=20)
+Npoly_rect_2017_penetration_collisions!(model, nh, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)); kappa=20)
 #Npoly_rect_2023_collisions!(model, nh, poly)
 
-# collision polytop
-# model, init = robot_rect_custom_polytop(nh, cdt_0, cdt_f, poly; d_min=1e-1)
+solve!(model, max_iter=2000)
 
-solve!(model, max_iter=1000)
 #=
 JuMP.set_optimizer(model, Ipopt.Optimizer)
 JuMP.set_optimizer_attribute(model, "max_iter", 1000)
@@ -122,8 +117,8 @@ pos = ((a, b, c) -> (a, b, c)).(x, y, ϕ)
 # rendering
 times = LinRange(0, T, nh+1)
 
-CairoMakie.Label(f[-1, :], "Solution pour un champ de polygones", fontsize = 18)
-CairoMakie.Label(f[0, :], "temps de trajet : T = $(trunc(T, digits=3, base=10)) s\nN = $(nh+1) pts\nCondition initiale en ligne droite", justification = :left, fontsize = 12, halign=:left)
+CairoMakie.Label(f[-1, :], "Solution pour traverser un champ de polygones", fontsize = 18)
+CairoMakie.Label(f[0, :], "temps de trajet : T = $(trunc(T, digits=3, base=10)) s\nN = $(nh+1) pts\nCondition initiale en ligne droite \nSeulement le basculement dans les virages est considéré", justification = :left, fontsize = 12, halign=:left)
 
 plot_positions!(ax, pos, (1.128, 0.720), 1)
 plot_trajectory!(ax, [(px, py) for (px, py, _) in pos], col=:red)
@@ -145,6 +140,32 @@ CairoMakie.lines!(ax_ulr, times, ur, label="ur")
 axislegend(ax_ulr)
 
 
-CairoMakie.rowsize!(f.layout, 1, CairoMakie.Aspect(1, 1.0))
+#=μ = 0.5
+b = 1.128*0.4
+Tl = JuMP.value.(model[:Tl]).data
+Tr = JuMP.value.(model[:Tr]).data
+τl = JuMP.value.(model[:τl]).data
+τr = JuMP.value.(model[:τr]).data
+nl = JuMP.value.(model[:nl]).data
+nr = JuMP.value.(model[:nr]).data
+
+limitr = μ .* (nr)# .- abs.(τl+τr) ./ b)
+limitl = μ .* (nl)# .- abs.(τl+τr) ./ b)
+ax_τlr = Axis(f[5, :], ylabel="f. tangentielles (N)")
+linkxaxes!(ax_τlr, ax_r)
+lines = [lines!(ax_τlr, times, norm.(Tl, τl), label="T left"),
+lines!(ax_τlr, times, norm.(Tr, τr), label="T right"),
+lines!(ax_τlr, times, limitl, label="T_lim left"),
+lines!(ax_τlr, times, limitr, label="T_lim right")]
+
+#lines!(ax_τlr, times, u.*r.*10) 
+#=lines!(ax_τlr, times, τl .+ τr)
+lines!(ax_τlr, times, JuMP.value.(model[:τplus]).data)
+lines!(ax_τlr, times, JuMP.value.(model[:τmoins]).data)=#
+#lines!(ax_τlr, times, nl)
+#lines!(ax_τlr, times, nr)=#
+
+#Legend(f[6, :], lines, ["T left", "T right", "T lim left", "T lim right"], orientation=:horizontal)
+
 
 f

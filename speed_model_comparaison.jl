@@ -9,7 +9,7 @@ include("renderer.jl")
 include("initial_conditions.jl")
 include("polygon.jl")
 
-
+Random.seed!(4) # 4, 3, 2
 nh = 99
 
 # conditions initales et finales (x, y, ϕ, u, r)
@@ -121,7 +121,7 @@ plots = GridLayout()
 label = CairoMakie.Label(f, "Nombre de points : $(nh+1) pts \nInitialisaion en ligne droite", justification = :left, fontsize = 12, halign=:left)
 infos[3, 1] = label
 
-for (i, (name, T, N)) in enumerate([("2012", T1, N1), ("2017", T2, N2), ("2024", T3, N3)])
+for (i, (name, T, N)) in enumerate([("2012", T1, N1), ("2017", T2, N2), ("2023", T3, N3)])
     info = CairoMakie.Label(f, "Modèle : $name \nTemps de trajet : T = $(trunc(T, digits=3, base=10)) s\nIterations = $(N)", justification = :left, fontsize = 12, halign=:left)
     infos[2, i] = info
 end
@@ -135,7 +135,7 @@ plots[1, 1] = ax
 plot_endpoints!(ax, cdt_0[1:3], cdt_f[1:3])
 plot_trajectory!(ax, pos1, col=:red, label="2012")
 plot_trajectory!(ax, pos2, col=:orange, label="2017")
-plot_trajectory!(ax, pos3, col=:yellow, label="2024")
+plot_trajectory!(ax, pos3, col=:yellow, label="2023")
 axislegend(ax)
 
 for points in poly
