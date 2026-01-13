@@ -9,14 +9,14 @@ include("renderer.jl")
 include("initial_conditions.jl")
 include("polygon.jl")
 
-Random.seed!(7); # 3, 7 (5 fail)
+Random.seed!(3); # 3, 7 (5 fail)
 
 f = CairoMakie.Figure(size = (512, 920))
 ax = CairoMakie.Axis(f[1, 1], aspect = CairoMakie.DataAspect(), alignmode=CairoMakie.Inside())
 
 
 
-nh = 64
+nh = 128
 
 # conditions initales et finales (x, y, ϕ, u, r)
 cdt_0 = (-8, 0, 0, 0, 0)
@@ -92,13 +92,15 @@ for c in center
     poly!(ax, [Tuple(p) for p in points], strokecolor=:blue, strokewidth=1, color=:white)
 end
 
+start = initAstar(nh, poly, (-8.2, 8.2), (-5, 5), cdt_0, cdt_f; spacing=0.3, dmin=0.4)
+
 model = Model()
-dynamic_model!(model, nh, cdt_0, cdt_f; m=105)
+dynamic_model!(model, nh, cdt_0, cdt_f; start=start, m=105)
 
-Npoly_rect_2017_penetration_collisions!(model, nh, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)); kappa=20)
-#Npoly_rect_2023_collisions!(model, nh, poly)
+#Npoly_rect_2017_penetration_collisions!(model, nh, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)); kappa=20)
+Npoly_rect_2023_collisions!(model, nh, poly)
 
-solve!(model, max_iter=2000)
+solve!(model, max_iter=80)
 
 #=
 JuMP.set_optimizer(model, Ipopt.Optimizer)
@@ -120,7 +122,7 @@ times = LinRange(0, T, nh+1)
 CairoMakie.Label(f[-1, :], "Solution pour traverser un champ de polygones", fontsize = 18)
 CairoMakie.Label(f[0, :], "temps de trajet : T = $(trunc(T, digits=3, base=10)) s\nN = $(nh+1) pts\nCondition initiale en ligne droite \nSeulement le basculement dans les virages est considéré", justification = :left, fontsize = 12, halign=:left)
 
-plot_positions!(ax, pos, (1.128, 0.720), 1)
+plot_positions!(ax, pos, (1.128, 0.720), 10)
 plot_trajectory!(ax, [(px, py) for (px, py, _) in pos], col=:red)
 plot_endpoints!(ax, cdt_0[1:3], cdt_f[1:3])
 

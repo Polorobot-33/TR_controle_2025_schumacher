@@ -12,7 +12,7 @@ cdt_0 = (0, -5, π/2, 2.7, 0)
 cdt_f = (3,  0, 0,   2.7, 0)
 
 model = Model()
-dynamic_model_slide!(model, nh, cdt_0, cdt_f; epsilon=1e-4, μ=0.5, m=105)
+dynamic_model!(model, nh, cdt_0, cdt_f; epsilon=1e-4)#, μ=0.5, m=105)
 
 # collisions
 l1_c = 2.4 # largeur principale des couloirs
@@ -22,10 +22,10 @@ d = [-l2_c/2; -l1_c/2; -l1_c/2; -l2_c/2; -l2_c/2; -l1_c/2; -l1_c/2; -l2_c/2]
 poly = [[p .*[dx;dy] for p in [[l1_c/2;l2_c/2], [150;l2_c/2], [150;150], [l1_c/2;150]]] for (dx, dy) in [(1,1), (1,-1), (-1,-1), (-1,1)]]
 
 #Npoly_rect_2023_collisions!(model, nh, poly)
-Npoly_rect_2017_collisions!(model, nh, (4, 2), C, d)
-#Npoly_rect_2017_penetration_collisions!(model, nh, (4, 2), C, d; kappa=1e+8)
+#Npoly_rect_2017_collisions!(model, nh, (4, 2), C, d)
+Npoly_rect_2017_penetration_collisions!(model, nh, (4, 2), C, d; kappa=1e+8)
 
-solve!(model, max_iter=2000)
+solve!(model, max_iter=1000)
 
 x = JuMP.value.(model[:x]).data
 y = JuMP.value.(model[:y]).data
@@ -57,28 +57,34 @@ linkxaxes!(ax_a, ax_r)
 lines!(ax_a, times, a)
 lines!(ax_r, times, r)=#
 
-ax_F = Axis(f[4, :], xlabel="temps", ylabel="F (N)")#; limits=(nothing, (-0.0001, 0.0001)))
+#ax_F = Axis(f[4, :], xlabel="temps", ylabel="F (N)")#; limits=(nothing, (-0.0001, 0.0001)))
 #lines!(ax_F, times, var(model, :xplus) .- var(model, :xmoins), label="x+ - x-")
 #lines!(ax_F, times, var(model, :xplus), label="x+")
 #lines!(ax_F, times, var(model, :xmoins), label="x-")
 #axislegend(ax_F)
-lines!(ax_F, times, -var(model, :sgn))
+#lines!(ax_F, times, -var(model, :sgn))
 
-lines!(ax_F, times, 0.1 .* var(model,:F))
+#lines!(ax_F, times, 0.1 .* var(model,:F))
 #lines!(ax_F, times, 0.1 .* (transpose.(var(model,:v)) .* var(model,:e_t) .* var(model,:ϕdot)))
 #lines!(ax_F, times, (transpose.(var(model,:v)) .* var(model,:e_n)))
 
 
-ax_v = Axis(f[2, :], xlabel="temps")
-ax_ϕdot = Axis(f[3, :], xlabel="temps")
-linkxaxes!(ax_v, ax_ϕdot)
-lines!(ax_v, times, norm.(var(model,:v)))
+#ax_v = Axis(f[2, :], xlabel="temps")
+#ax_ϕdot = Axis(f[3, :], xlabel="temps")
+#linkxaxes!(ax_v, ax_ϕdot)
+#lines!(ax_v, times, norm.(var(model,:v)))
 #lines!(ax_v, times, transpose.(var(model,:v)) .* var(model,:e_n))
-lines!(ax_v, times, transpose.(var(model,:v)) .* var(model,:e_t))
-lines!(ax_ϕdot, times, var(model,:ϕdot))
+#lines!(ax_v, times, transpose.(var(model,:v)) .* var(model,:e_t))
+#lines!(ax_ϕdot, times, var(model,:ϕdot))
+ax_a = Axis(f[2, :], xlabel="temps", ylabel="a (m/s²)")
+ax_r = Axis(f[3, :], xlabel="temps", ylabel="r (rad/s²)")
+linkxaxes!(ax_a, ax_r)
+lines!(ax_a, times, var(model,:a))
+lines!(ax_r, times, var(model,:r))
+#lines!(ax_v, times, transpose.(var(model,:v)) .* var(model,:e_t))
 
 #make_animation(x, y, ϕ, (ax) -> plot_terrain!(ax, l1_c, l2_c))
 rowsize!(f.layout, 1, Aspect(1, 1.0))
 
-save("figure.png", f)
+save("figure.pdf", f)
 f

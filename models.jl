@@ -2,6 +2,8 @@ using JuMP
 using Ipopt
 using LinearAlgebra
 
+include("collocation.jl")
+
 function var(model, var)
     return JuMP.value.(model[var]).data
 end
@@ -489,7 +491,7 @@ end
 # collisions!(model, ...)
 # solve()
 
-function basic_model!(model, nh, cdt_0, cdt_f; u_max_p=2.75)
+function basic_model!(model, nh, cdt_0, cdt_f; start=nothing, u_max_p=2.75)
     u_max = u_max_p # vitesse maximale d'une roue
 
     # conditions initiales
@@ -499,7 +501,8 @@ function basic_model!(model, nh, cdt_0, cdt_f; u_max_p=2.75)
     x_f, y_f, ϕ_f, u_f, r_f = cdt_f
 
     # etat initial
-    x_i, y_i, ϕ_i, u_i, r_i, T_i = init_straight(nh, [x_0, y_0], [x_f, y_f], u_max/2)
+    x_i, y_i, ϕ_i, u_i, r_i, T_i = (isnothing(start) ? init_straight(nh, [x_0, y_0], [x_f, y_f], u_max/2) : start)
+
     step = 1 / nh
 
     @variables(model, begin
@@ -542,8 +545,8 @@ function basic_model!(model, nh, cdt_0, cdt_f; u_max_p=2.75)
     return x_i, y_i, ϕ_i, u_i, r_i, T_i
 end
 
-function speed_model!(model, nh, cdt_0, cdt_f; u_max=2.7, rw_c=0.72)
-    basic_model!(model, nh, cdt_0, cdt_f; u_max_p=u_max)
+function speed_model!(model, nh, cdt_0, cdt_f; start=nothing, u_max=2.7, rw_c=0.72)
+    basic_model!(model, nh, cdt_0, cdt_f; start=start, u_max_p=u_max)
 
     d_c = rw_c*0.4;
 
@@ -557,7 +560,7 @@ function speed_model!(model, nh, cdt_0, cdt_f; u_max=2.7, rw_c=0.72)
     end)
 end
 
-function dynamic_model!(model, nh, cdt_0, cdt_f; U_max=48, rw=0.72, rh=1.128, m=105, epsilon = 1e-6)
+function dynamic_model!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48, rw=0.72, rh=1.128, m=105, epsilon = 1e-6)
     Izz = m * (rh^2 + rw^2) / 12
     ρ = 0.10;
     d = rw*0.4; # espacement des roues
@@ -568,7 +571,7 @@ function dynamic_model!(model, nh, cdt_0, cdt_f; U_max=48, rw=0.72, rh=1.128, m=
     Meq = m # masse équivalente du robot avec ses roues
     Ieq = Izz # intertie équivalente du robot avec ses roues
 
-    _, _, _, u0, r0, _ = basic_model!(model, nh, cdt_0, cdt_f; u_max_p=2.7)
+    _, _, _, u0, r0, _ = basic_model!(model, nh, cdt_0, cdt_f; start=start, u_max_p=2.7)
 
 
     u = model[:u]
@@ -592,7 +595,7 @@ function dynamic_model!(model, nh, cdt_0, cdt_f; U_max=48, rw=0.72, rh=1.128, m=
     end)
 end
 
-function dynamic_model_Tlim!(model, nh, cdt_0, cdt_f; U_max=48, rw=0.72, rh=1.128, m=105, epsilon = 1e-6)
+function dynamic_model_Tlim!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48, rw=0.72, rh=1.128, m=105, epsilon = 1e-6)
     Izz = m * (rh^2 + rw^2) / 12
     ρ = 0.10;
     d = rw*0.4; # espacement des roues
@@ -608,7 +611,7 @@ function dynamic_model_Tlim!(model, nh, cdt_0, cdt_f; U_max=48, rw=0.72, rh=1.12
     Ieq = Izz # intertie équivalente du robot avec ses roues
     g = 9.81
 
-    _, _, _, u0, r0, _ = basic_model!(model, nh, cdt_0, cdt_f; u_max_p=2.7)
+    _, _, _, u0, r0, _ = basic_model!(model, nh, cdt_0, cdt_f; start=start, u_max_p=2.7)
 
 
     u = model[:u]
@@ -659,7 +662,7 @@ function dynamic_model_Tlim!(model, nh, cdt_0, cdt_f; U_max=48, rw=0.72, rh=1.12
     end)
 end
 
-function dynamic_model_slide!(model, nh, cdt_0, cdt_f; U_max=48, rw=0.72, rh=1.128, m=105, μ=0.5, epsilon = 1e-6)
+function dynamic_model_slide!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48, rw=0.72, rh=1.128, m=105, μ=0.5, epsilon = 1e-6)
     Izz = m * (rh^2 + rw^2) / 12
     ρ = 0.10;
     d = rw*0.4; # espacement des roues
@@ -675,7 +678,7 @@ function dynamic_model_slide!(model, nh, cdt_0, cdt_f; U_max=48, rw=0.72, rh=1.1
     x_0, y_0, ϕ_0, u_0, r_0 = cdt_0
     x_f, y_f, ϕ_f, u_f, r_f = cdt_f
     # etat initial
-    x_i, y_i, ϕ_i, u_i, _, T_i = init_straight(nh, [x_0, y_0], [x_f, y_f], (u_0 + u_f) / 2)
+    x_i, y_i, ϕ_i, u_i, _, T_i = (isnothing(start) ? init_straight(nh, [x_0, y_0], [x_f, y_f], (u_0 + u_f) / 2) : start)
     step = 1 / nh
 
     @variables(model, begin
@@ -742,7 +745,7 @@ function dynamic_model_slide!(model, nh, cdt_0, cdt_f; U_max=48, rw=0.72, rh=1.1
     end)
 end
 
-function dynamic_model_slide2!(model, nh, cdt_0, cdt_f; U_max=48, rw=0.72, rh=1.128, m=105, μ=0.5, epsilon = 1e-6)
+function dynamic_model_slide2!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48, rw=0.72, rh=1.128, m=105, μ=0.5, epsilon = 1e-6)
     Izz = m * (rh^2 + rw^2) / 12
     ρ = 0.10;
     d = rw*0.4; # espacement des roues
@@ -758,7 +761,7 @@ function dynamic_model_slide2!(model, nh, cdt_0, cdt_f; U_max=48, rw=0.72, rh=1.
     x_0, y_0, ϕ_0, u_0, r_0 = cdt_0
     x_f, y_f, ϕ_f, u_f, r_f = cdt_f
     # etat initial
-    x_i, y_i, ϕ_i, u_i, _, T_i = init_straight(nh, [x_0, y_0], [x_f, y_f], (u_0 + u_f) / 2)
+    x_i, y_i, ϕ_i, u_i, _, T_i = (isnothing(start) ? init_straight(nh, [x_0, y_0], [x_f, y_f], (u_0 + u_f) / 2) : start)
     step = 1 / nh
 
     @variables(model, begin
@@ -824,6 +827,7 @@ function dynamic_model_slide2!(model, nh, cdt_0, cdt_f; U_max=48, rw=0.72, rh=1.
         ϕdot_fc, ϕdot[nh] == 0
     end)
 end
+
 
 
 function corner_point_2012_collisions!(model, nh; l1_c = 2.4, l2_c = 0.9, epsilon=1e-6)
@@ -992,10 +996,11 @@ function Npoly_rect_2023_collisions!(model, nh, poly; d_min=1e-4)
     # Collisions
     @constraints(model, begin
         con_c1[t=1:nh, i=0:(N_poly-1)], transpose(ξ[t, i, :]) * ξ[t, i, :] / 4 + μ_r[t, i] + μ_o[t, i] + d_min^2 <= 0
-        con_c2[t=1:nh, i=0:(N_poly-1)], -transpose(R(ϕ[t]) * Ve .+ tr(x[t], y[t])) * ξ[t, i, :] .- μ_r[t, i] <= 0
+        con_c2[t=1:nh, i=0:(N_poly-1)], -transpose(R(ϕ[t]) * Ve) * ξ[t, i, :] .- transpose(tr(x[t], y[t]))*ξ[t, i, :] .- μ_r[t, i] <= 0
         con_c3[t=1:nh, i=0:(N_poly-1)], transpose(Vo[i+1]) * ξ[t, i, :] .- μ_o[t, i] <= 0
     end)
 end
+
 
 
 function solve!(model; max_iter=500)
