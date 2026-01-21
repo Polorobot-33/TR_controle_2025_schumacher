@@ -8,6 +8,11 @@ function var(model, var)
     return JuMP.value.(model[var]).data
 end
 
+function limit_time!(model, T_max)
+    T = model[:T]
+    @constraint(model, T <= T_max)
+end
+
 
 
 function robot_point_model(nh)
@@ -509,9 +514,9 @@ function basic_model!(model, nh, cdt_0, cdt_f; start=nothing, u_max_p=2.75)
         x[i=0:nh], (start = x_i[i+1])
         y[i=0:nh], (start = y_i[i+1])
         ϕ[i=0:nh], (start = ϕ_i[i+1])
-        u[i=0:nh], (start = u_i[i+1])
+        -2.7 <= u[i=0:nh] <= 2.7, (start = u_i[i+1])
         r[i=0:nh], (start = r_i[i+1])
-        0.0 <= T,  (start = T_i)
+        0.1 <= T,  (start = T_i)
     end)
 
     @expressions(model, begin
@@ -562,11 +567,11 @@ end
 
 function dynamic_model!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48, rw=0.72, rh=1.128, m=105, epsilon = 1e-6)
     Izz = m * (rh^2 + rw^2) / 12
-    ρ = 0.10;
+    ρ = 0.05;
     d = rw*0.4; # espacement des roues
 
     R = 0.25;# 1.43; # résistance du moteur
-    k = 0.107; # constante de couple
+    k = 0.05 #0.107; # constante de couple (0.56)
 
     Meq = m # masse équivalente du robot avec ses roues
     Ieq = Izz # intertie équivalente du robot avec ses roues
@@ -579,8 +584,8 @@ function dynamic_model!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48, rw=0.7
     δt = model[:δt]
 
     @variables(model, begin
-        -U_max <= ul[i=0:nh] <= U_max, (start = k * (u0[i+1] - d*r0[i+1]) / ρ)
-        -U_max <= ur[i=0:nh] <= U_max, (start = k * (u0[i+1] - d*r0[i+1]) / ρ)
+        -U_max <= ul[i=0:nh] <= U_max, (start = 0)#k * (u0[i+1] - d*r0[i+1]) / ρ)
+        -U_max <= ur[i=0:nh] <= U_max, (start = 0)#k * (u0[i+1] + d*r0[i+1]) / ρ)
     end)
 
     @expressions(model, begin
@@ -595,17 +600,16 @@ function dynamic_model!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48, rw=0.7
     end)
 end
 
-function dynamic_model_Tlim!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48, rw=0.72, rh=1.128, m=105, epsilon = 1e-6)
+function dynamic_model_Tlim!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48, rw=0.72, rh=1.128, m=105, epsilon = 1e-6, f=0.5)
     Izz = m * (rh^2 + rw^2) / 12
     ρ = 0.10;
     d = rw*0.4; # espacement des roues
     l = 0.1; # hauteur du centre de gravit au-dessus de l'axe des roues
     b = rh*0.4 # distance des roulettes
-    f = 0.5 # coefficient de frottements secs
 
 
     R = 0.25;#1.43; # résistance du moteur
-    k = 0.107; # constante de couple
+    k = 0.05#0.107; # constante de couple (0.56)
 
     Meq = m # masse équivalente du robot avec ses roues
     Ieq = Izz # intertie équivalente du robot avec ses roues
@@ -619,8 +623,74 @@ function dynamic_model_Tlim!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48, r
     δt = model[:δt]
 
     @variables(model, begin
-        -U_max <= ul[i=0:nh] <= U_max, (start = k * (u0[i+1] - d*r0[i+1]) / ρ)
-        -U_max <= ur[i=0:nh] <= U_max, (start = k * (u0[i+1] - d*r0[i+1]) / ρ)
+        -U_max <= ul[i=0:nh] <= U_max, (start = 0)#k * (u0[i+1] - d*r0[i+1]) / ρ)
+        -U_max <= ur[i=0:nh] <= U_max, (start = 0)#k * (u0[i+1] + d*r0[i+1]) / ρ)
+
+        # force tangente au sol
+        tl[i=0:nh], (start = 0)
+        tr[i=0:nh], (start = 0)
+    end)
+
+    @expressions(model, begin
+        τl[i=0:nh], k * (ul[i] - k/ρ*(u[i] - d*r[i])) / R
+        τr[i=0:nh], k * (ur[i] - k/ρ*(u[i] + d*r[i])) / R
+
+        # forces normale sur chaque pneu
+        nl[i=0:nh], (-(l+ρ)/d * Meq*r[i]*u[i] + Meq*g) / 2
+        nr[i=0:nh], ( (l+ρ)/d * Meq*r[i]*u[i] + Meq*g) / 2
+    end)    
+
+    # Dynamics
+    @constraints(model, begin
+        con_u[i=1:nh], u[i] == u[i-1] + δt * 0.5 * (τl[i]+τl[i-1] + τr[i]+τr[i-1]) / (ρ * Meq)
+        con_r[i=1:nh], r[i] == r[i-1] + δt * 0.5 * (τr[i]+τr[i-1] - τl[i]-τl[i-1])*d / (ρ * Ieq)
+    end)
+
+    
+    # friction limit
+    @constraints(model, begin # assume that nl and nr are always positive (the robot doesn't tip over)
+        con_nl[i=0:nh], 0 <= nl[i]
+        con_nr[i=0:nh], 0 <= nr[i]
+
+        con_a[i=0:nh], -1.4 <= (τl[i] + τr[i]) / (ρ * Meq) <= 1.4
+
+        con_T[i=0:nh], tl[i] + tr[i] == Meq * u[i] * r[i]
+        # con_fl_min[i=0:nh], -f * nl[i] <= tl[i]
+        # con_fl_max[i=0:nh],  f * nl[i] >= tl[i]
+        # con_fr_min[i=0:nh], -f * nr[i] <= tr[i]
+        # con_fr_max[i=0:nh],  f * nr[i] >= tr[i]
+
+        con_fl[i=0:nh], tl[i]^2 + (τl[i]/d)^2 <= (f * nl[i])^2
+        con_fr[i=0:nh], tr[i]^2 + (τr[i]/d)^2 <= (f * nr[i])^2
+    end)
+end
+
+function dynamic_model_Tlim_full!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48, rw=0.72, rh=1.128, m=105, epsilon = 1e-6)
+    Izz = m * (rh^2 + rw^2) / 12
+    ρ = 0.10;
+    d = rw*0.4; # espacement des roues
+    l = 0.1; # hauteur du centre de gravit au-dessus de l'axe des roues
+    b = rh*0.4 # distance des roulettes
+    f = 10 # coefficient de frottements secs
+
+
+    R = 0.25;#1.43; # résistance du moteur
+    k = 0.107; # constante de couple (0.56)
+
+    Meq = m # masse équivalente du robot avec ses roues
+    Ieq = Izz # intertie équivalente du robot avec ses roues
+    g = 9.81
+
+    _, _, _, u0, r0, _ = basic_model!(model, nh, cdt_0, cdt_f; start=start, u_max_p=2.7)
+
+
+    u = model[:u]
+    r = model[:r]
+    δt = model[:δt]
+
+    @variables(model, begin
+        -U_max <= ul[i=0:nh] <= U_max, (start = 0)#k * (u0[i+1] - d*r0[i+1]) / ρ)
+        -U_max <= ur[i=0:nh] <= U_max, (start = 0)#k * (u0[i+1] + d*r0[i+1]) / ρ)
         
         # forces (pour les limites de frottements)
         τplus[i=0:nh] >= 0, (start = 0)
@@ -669,7 +739,7 @@ function dynamic_model_slide!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48, 
     # μ coefficient de friction
 
     R = 0.25;# 1.43; # résistance du moteur
-    k = 0.107; # constante de couple
+    k = 0.107; # constante de couple (0.56)
 
     Meq = m # masse équivalente du robot avec ses roues
     Ieq = Izz # intertie équivalente du robot avec ses roues
@@ -696,7 +766,7 @@ function dynamic_model_slide!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48, 
         xmoins[i=0:nh] >= 0, (start = 0)
         -1 <= sgn[i=0:nh] <= 1, (start = 0)
 
-        0.0 <= T <= 10,  (start = T_i)
+        0.0 <= T,  (start = T_i)
     end)
 
     @expressions(model, begin
@@ -752,7 +822,7 @@ function dynamic_model_slide2!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48,
     # μ coefficient de friction
 
     R = 0.25;# 1.43; # résistance du moteur
-    k = 0.107; # constante de couple
+    k = 0.107; # constante de couple (0.56)
 
     Meq = m # masse équivalente du robot avec ses roues
     Ieq = Izz # intertie équivalente du robot avec ses roues
@@ -771,15 +841,15 @@ function dynamic_model_slide2!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48,
         ϕdot[i=0:nh], (start = 0)
         xdot[i=0:nh], (start = u_i[i+1]*cos(ϕ_i[i+1]))
         ydot[i=0:nh], (start = u_i[i+1]*sin(ϕ_i[i+1]))
-        -0.1 <= a[i=0:nh] <= 4 , (start = 0)
-        -2.5 <= r[i=0:nh] <= 2.5, (start = 0)
+        -U_max <= ul[i=0:nh] <= U_max, (start = 0)#k * (u0[i+1] - d*r0[i+1]) / ρ)
+        -U_max <= ur[i=0:nh] <= U_max, (start = 0)#k * (u0[i+1] + d*r0[i+1]) / ρ)
         
         # friction force
         xplus[i=0:nh] >= 0, (start = 0)
         xmoins[i=0:nh] >= 0, (start = 0)
         -1 <= sgn[i=0:nh] <= 1, (start = 0)
 
-        0.0 <= T <= 10,  (start = T_i)
+        0.0 <= T,  (start = T_i)
     end)
 
     @expressions(model, begin
@@ -790,9 +860,13 @@ function dynamic_model_slide2!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48,
         v[i=0:nh], [xdot[i]; ydot[i]]
 
         F[i=0:nh], -μ * 1 * 9.81 * sgn[i] # Meq / Meq = 1
+        τl[i=0:nh], k * (ul[i] - k/ρ*(transpose(v[i])*e_t[i] - d*ϕdot[i])) / R
+        τr[i=0:nh], k * (ur[i] - k/ρ*(transpose(v[i])*e_t[i] + d*ϕdot[i])) / R
+        a[i=0:nh], (τr[i] + τl[i]) / (ρ*Meq)
+        r[i=0:nh], (τr[i] - τl[i])*d / (ρ*Ieq)
     end)
 
-    @objective(model, Min, T)
+    @objective(model, Min, T)# + (1e+8)*sum(abs.((transpose.(v) .* e_t) .* ϕdot .- F)))
 
     # Dynamics
     @constraints(model, begin
@@ -801,7 +875,7 @@ function dynamic_model_slide2!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48,
         con_ϕ[i=1:nh], ϕ[i] == ϕ[i-1] + δt * (ϕdot[i-1] + ϕdot[i]) / 2
 
         con_v[i=1:nh], v[i] == v[i-1] + δt * (a[i-1].*e_t[i-1] .+ F[i-1].*e_n[i-1] .+ a[i].*e_t[i] .+ F[i].*e_n[i]) / 2
-        con_ϕdot[i=1:nh], ϕdot[i] == ϕdot[i-1] + δt * (r[i-1] * (transpose(e_t[i-1])*v[i-1]) .+ r[i] * (transpose(e_t[i])*v[i])) / 2
+        con_ϕdot[i=1:nh], ϕdot[i] == ϕdot[i-1] + δt * (r[i-1] .+ r[i]) / 2
     
         # frottements
         con_xsgn[i=0:nh], xplus[i] - xmoins[i] == transpose(e_n[i]) * v[i]
@@ -927,7 +1001,8 @@ function Npoly_rect_2017_penetration_collisions!(model, nh, dims, C_p, d_p; kapp
     e_t=model[:e_t]
     ϕdot=model[:ϕdot]
     F = model[:F]=#
-    @objective(model, Min, T + kappa * sum(s))# + (1e+0)*sum(abs.((transpose.(v) .* e_t) .* ϕdot .- F)))
+
+    @objective(model, Min, T + kappa * sum(s))# + (1e-3)*sum(abs.((transpose.(v) .* e_t) .* ϕdot .- F)))
 
     x = model[:x]
     y = model[:y]

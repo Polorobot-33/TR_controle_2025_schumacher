@@ -128,7 +128,7 @@ function make_animation(x, y, ϕ, terrain)
 	nh = length(pos)
 	framerate = 25
 	timestamps = 1:nh
-
+	
 	fig = Figure(size=(512, 512))
 	axanim = Axis(fig[1, 1], aspect = CairoMakie.DataAspect())
 	terrain(axanim)#plot_terrain!(axanim, l1_c, l2_c)

@@ -59,13 +59,18 @@ function smooth(x, y; s=2)
     y_o = fill(0.0, N)
     for i in 1:N
         count = min(N, i+s) - max(1, i-s) + 1
-        x_o[i] = sum(x[max(1,i-s) : min(N,i+s)]) / count
-        y_o[i] = sum(y[max(1,i-s) : min(N,i+s)]) / count
+        mx = sum(x[max(1,i-s) : min(N,i+s)]) / count
+        my = sum(y[max(1,i-s) : min(N,i+s)]) / count
+
+        start_f = s <= 0 ? 1 : min(i-1, s) / s
+        end_f = s <= 0 ? 1 : min(N-i, s) / s
+        x_o[i] = lerp(x[end], lerp(x[begin], mx, start_f), end_f)
+        y_o[i] = lerp(y[end], lerp(y[begin], my, start_f), end_f)
     end
     return x_o, y_o
 end
 
-function initAstar(nh, poly, rangex, rangey, cdt_0, cdt_f; spacing=0.1, dmin=0.1)
+function initAstar(nh, poly, rangex, rangey, cdt_0, cdt_f; spacing=0.1, dmin=0.1, smoothing=8)
     x_0, y_0, ϕ_0, u_0, r_0  = cdt_0
     x_f, y_f, ϕ_f, u_f, r_f  = cdt_f
     from = (x_0, y_0)
@@ -87,16 +92,16 @@ function initAstar(nh, poly, rangex, rangey, cdt_0, cdt_f; spacing=0.1, dmin=0.1
     vmap = rem_vertices!(mesh, mask)
 
     # find start and index positions in the graph
-    start_x = round(map(from[1], rangex[1], rangex[2], 0, Nx-0.001; clamp=true))
-    start_y = round(map(from[2], rangey[1], rangey[2], 0, Ny-0.001; clamp=true))
+    start_x = round(Int, map(from[1], rangex[1], rangex[2], 0, Nx-0.001; clamp=true))
+    start_y = round(Int, map(from[2], rangey[1], rangey[2], 0, Ny-0.001; clamp=true))
     ind_start = findfirst(e -> e == start_x + start_y * Nx + 1, vmap)
     
-    end_x = round(map(to[1], rangex[1], rangex[2], 0, Nx-0.001))
-    end_y = round(map(to[2], rangey[1], rangey[2], 0, Ny-0.001))
+    end_x = round(Int, map(to[1], rangex[1], rangex[2], 0, Nx-0.001))
+    end_y = round(Int, map(to[2], rangey[1], rangey[2], 0, Ny-0.001))
     ind_end = findfirst(e -> e == end_x + end_y * Nx + 1, vmap)
 
     if isnothing(ind_start) || isnothing(ind_end) 
-        throw("start or end position is impossible")
+        throw("start or end position is out of bounds")
     end
 
     # calculate the path
@@ -111,13 +116,17 @@ function initAstar(nh, poly, rangex, rangey, cdt_0, cdt_f; spacing=0.1, dmin=0.1
     interp = [map(i, 0, nh, 1, length(path)) for i in 0:nh]
     x_i = [lerp(ind2x(path[floor(Int, t)]), ind2x(path[ceil(Int, t)]), t%1) for t in interp]
     y_i = [lerp(ind2y(path[floor(Int, t)]), ind2y(path[ceil(Int, t)]), t%1) for t in interp]
-    x_i, y_i = smooth(x_i, y_i; s=12)
+    x_i[begin] = x_0
+    x_i[end]   = x_f
+    y_i[begin] = y_0
+    y_i[end]   = y_f
+    x_i, y_i = smooth(x_i, y_i; s=smoothing)
 
     ϕ_i = [atan(y_i[i+1] - y_i[i-1], x_i[i+1] - x_i[i-1]) for i in 2:nh]
     pushfirst!(ϕ_i, ϕ_0)
     push!(ϕ_i, ϕ_f)
 
-    u_avg = max((u_0 + u_f) / 2, 1.0)
+    u_avg = max((u_0 + u_f) / 2, 0.1) # minimum speed
     u = fill(u_avg, nh+1)
 
     totaldist = sum([norm([x_i[i+1]-x_i[i], y_i[i+1]-y_i[i]]) for i in 1:nh])

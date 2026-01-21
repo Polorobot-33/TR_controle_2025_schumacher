@@ -9,8 +9,9 @@ include("renderer.jl")
 include("initial_conditions.jl")
 include("polygon.jl")
 
-Random.seed!(4) # 4, 3, 2
-nh = 99
+Random.seed!(14); # 11, 3, 5, 7
+
+nh = 64
 
 # conditions initales et finales (x, y, ϕ, u, r)
 cdt_0 = (-8, 0, 0, 0, 0)
@@ -26,7 +27,7 @@ poly = []
 
 N_faces = 5
 poly_area = 1;
-center = PoissonDiskSampling.generate(2.5, (-4, 4), (-3, 3))
+center = PoissonDiskSampling.generate(2.8, (-6, 6), (-4, 4))
 N_poly = length(center)
 
 function normalize(u)
@@ -63,44 +64,50 @@ for c in center
 
     # collision polytop
     push!(poly, points)
+
+    poly!(ax, [Tuple(p) for p in points], strokecolor=:blue, strokewidth=1, color=:white)
 end
 
-# collision polyhedra
-model1, init = robot_rect_custom_model(nh, cdt_0, cdt_f, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)))
-JuMP.set_optimizer(model1, Ipopt.Optimizer)
-JuMP.set_optimizer_attribute(model1, "max_iter", 500)
-JuMP.optimize!(model1)
+start = initAstar(nh, poly, (-8.2, 8.2), (-5, 5), cdt_0, cdt_f; spacing=0.3, dmin=0.4)
 
-model2, _ = robot_rect_custom_polyhedra(nh, cdt_0, cdt_f, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)))
-JuMP.set_optimizer(model2, Ipopt.Optimizer)
-JuMP.set_optimizer_attribute(model2, "max_iter", 500)
-JuMP.optimize!(model2)
+
+# collision polyhedra
+model1 = Model()
+dynamic_model!(model1, nh, cdt_0, cdt_f; start=start, m=105)
+Npoly_rect_2012_collisions!(model1, nh, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)))
+solve!(model1, max_iter=1000)
+
+
+model2 = Model()
+dynamic_model!(model2, nh, cdt_0, cdt_f; start=start, m=105)
+Npoly_rect_2017_penetration_collisions!(model2, nh, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)); kappa=1e+2)
+solve!(model2, max_iter=1000)
 
 # collision polytop
-model3, init = robot_rect_custom_polytop(nh, cdt_0, cdt_f, poly; d_min=1e-1)
-JuMP.set_optimizer(model3, Ipopt.Optimizer)
-JuMP.set_optimizer_attribute(model3, "max_iter", 500)
-JuMP.optimize!(model3)
+model3 = Model()
+dynamic_model!(model3, nh, cdt_0, cdt_f; start=start, m=105)
+Npoly_rect_2023_collisions!(model3, nh, poly; d_min=0.05)
+solve!(model3, max_iter=1000)
 
 # rendering
 x1 = JuMP.value.(model1[:x]).data
 y1 = JuMP.value.(model1[:y]).data
-u1 = JuMP.value.(model1[:u]).data
-r1 = JuMP.value.(model1[:r]).data
+#u1 = JuMP.value.(model1[:u]).data
+#r1 = JuMP.value.(model1[:r]).data
 T1 = JuMP.value.(model1[:T])
 N1 = JuMP.barrier_iterations(model1)
 
 x2 = JuMP.value.(model2[:x]).data
 y2 = JuMP.value.(model2[:y]).data
-u2 = JuMP.value.(model2[:u]).data
-r2 = JuMP.value.(model2[:r]).data
+#u2 = JuMP.value.(model2[:u]).data
+#r2 = JuMP.value.(model2[:r]).data
 T2 = JuMP.value.(model2[:T])
 N2 = JuMP.barrier_iterations(model2)
 
 x3 = JuMP.value.(model3[:x]).data
 y3 = JuMP.value.(model3[:y]).data
-u3 = JuMP.value.(model3[:u]).data
-r3 = JuMP.value.(model3[:r]).data
+#u3 = JuMP.value.(model3[:u]).data
+#r3 = JuMP.value.(model3[:r]).data
 T3 = JuMP.value.(model3[:T])
 N3 = JuMP.barrier_iterations(model3)
 
@@ -118,7 +125,7 @@ plots = GridLayout()
 
 #legend = axislegend(ax)#/, [m1, m2, m3], ["modèle 2012", "modèle 2017", "modèle 2024"], alignmode = Inside());
 #infos[3, 1] = legend
-label = CairoMakie.Label(f, "Nombre de points : $(nh+1) pts \nInitialisaion en ligne droite", justification = :left, fontsize = 12, halign=:left)
+label = CairoMakie.Label(f, "Nombre de points : $(nh+1) pts \nInitialisaion avec A*", justification = :left, fontsize = 12, halign=:left)
 infos[3, 1] = label
 
 for (i, (name, T, N)) in enumerate([("2012", T1, N1), ("2017", T2, N2), ("2023", T3, N3)])
@@ -161,4 +168,6 @@ CairoMakie.colsize!(f.layout, 1, CairoMakie.Relative(1.0))
 
 f.layout[1, 1] = infos
 f.layout[2, 1] = plots
+
+save("figure.svg", f)
 f
