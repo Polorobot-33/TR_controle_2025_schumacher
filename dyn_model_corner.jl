@@ -23,19 +23,19 @@ poly = [[p .*[dx;dy] for p in [[l1_c/2;l2_c/2], [150;l2_c/2], [150;150], [l1_c/2
 start = initAstar(nh, poly, (-3, 5), (-5, 3), cdt_0, cdt_f; spacing=0.18, dmin=0.3, smoothing=12)
 
 model = Model()
-#speed_model!(model, nh, cdt_0, cdt_f; start=start)#; epsilon=1e-4)#, μ=0.5, m=105)
+speed_model!(model, nh, cdt_0, cdt_f; start=start, rk=ExplicitEuler())#; epsilon=1e-4)#, μ=0.5, m=105)
 #dynamic_model!(model, nh, cdt_0, cdt_f; start=start, epsilon=1e-4)#, μ=0.5, m=105)
-dynamic_model_Tlim!(model, nh, cdt_0, cdt_f; start=start)
+#dynamic_model_Tlim!(model, nh, cdt_0, cdt_f; start=start)
 #dynamic_model_Tlim_full!(model, nh, cdt_0, cdt_f; start=start)
 #dynamic_model_slide2!(model, nh, cdt_0, cdt_f; start=start, μ=0.1)
 
 
 #Npoly_rect_2012_collisions!(model, nh, (4, 2), C, d)
-Npoly_rect_2017_collisions!(model, nh, (4, 2), C, d)
+#Npoly_rect_2017_collisions!(model, nh, (4, 2), C, d)
 #Npoly_rect_2017_penetration_collisions!(model, nh, (4, 2), C, d; kappa=1e+2)
-#Npoly_rect_2023_collisions!(model, nh, poly; d_min=0.05)
+Npoly_rect_2023_collisions!(model, nh, poly; d_min=0.05)
 
-#limit_time!(model, 3.5)
+limit_time!(model, 2.5)
 solve!(model, max_iter=1500)
 
 x = JuMP.value.(model[:x]).data
@@ -48,7 +48,7 @@ pos = ((a, b, c) -> (a, b, c)).(x, y, ϕ)
 
 
 # rendering
-f = Figure(size = (560, 920))#(512, 920))
+f = Figure(size = (560, 680))#(512, 920))
 ax = CairoMakie.Axis(f[1, 1], xlabel="position x (m)", ylabel="position y (m)", aspect = CairoMakie.DataAspect(), alignmode=CairoMakie.Inside())
 
 times = LinRange(0, T, nh+1)
@@ -66,8 +66,8 @@ plot_endpoints!(ax, cdt_0[1:3], cdt_f[1:3])
 
 #=ax_u = Axis(f[2, :], xlabel="temps", ylabel="vitesse u (m/s)")
 lines!(ax_u, times, var(model, :u))=#
-ax_a = Axis(f[2, :], xlabel="temps", ylabel="acc a (m/s²)")
-lines!(ax_a, times, (var(model, :τl) .+ var(model, :τl)) ./ (0.05 * 105))
+#=ax_a = Axis(f[2, :], xlabel="temps", ylabel="acc a (m/s²)")
+lines!(ax_a, times, (var(model, :τl) .+ var(model, :τl)) ./ (0.05 * 105))=#
 
 #Legend(f[1, :], [pl_ref, pl_traj], ["trajectoire de référence", "trajectoire optimisée"], halign=:right, valign=:top, orientation=:horizontal)
 
