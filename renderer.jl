@@ -38,6 +38,15 @@ function plot_ref!(ax, r)
 end
 
 """
+	affiche la trajectoire initiale
+"""
+function plot_start!(ax, start)
+	x, y, _ = start
+	return CairoMakie.lines!(ax, x, y, color=:magenta)
+end
+
+
+"""
 	affichage du départ et de l'arrivée
 """
 function plot_endpoints!(ax, x0, xf)

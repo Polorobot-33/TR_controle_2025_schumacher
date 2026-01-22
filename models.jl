@@ -496,16 +496,12 @@ end
 # collisions!(model, ...)
 # solve()
 
-function basic_model!(model, nh, cdt_0, cdt_f; start=nothing, u_max_p=2.75, rk::RKScheme=CrankNicolson())
+function base_model!(model, nh, cdt_0, cdt_f; start=nothing, u_max_p=2.75, rk::RKScheme=CrankNicolson())
     nc = length(rk.c)
     
     u_max = u_max_p # vitesse maximale d'une roue
-
-    # conditions initiales
-    x_0, y_0, ϕ_0, u_0, r_0 = cdt_0
-
-    # conditions finales
-    x_f, y_f, ϕ_f, u_f, r_f = cdt_f
+    x_0, y_0, ϕ_0, _= cdt_0 # conditions initiales
+    x_f, y_f, ϕ_f, _ = cdt_f # conditions finales
 
     # etat initial
     x_i, y_i, ϕ_i, u_i, r_i, T_i = (isnothing(start) ? init_straight(nh, [x_0, y_0], [x_f, y_f], u_max/2) : start)
@@ -513,21 +509,16 @@ function basic_model!(model, nh, cdt_0, cdt_f; start=nothing, u_max_p=2.75, rk::
     step = 1 / nh
 
     @variables(model, begin
+        T >= 0.1,  (start = T_i)
+
         qx[i=0:nh, j=0:nc], (start = x_i[i+1])
         qy[i=0:nh, j=0:nc], (start = y_i[i+1])
         qϕ[i=0:nh, j=0:nc], (start = ϕ_i[i+1])
-        -2.7 <= u[i=0:nh] <= 2.7, (start = u_i[i+1])
-        r[i=0:nh], (start = r_i[i+1])
-        T >= 0.1,  (start = T_i)
     end)
 
-    @expressions(model, begin
+    @expressions(model, begin 
         δt, T * step
-
-        dx[i=0:nh-1, j=0:nc-1], u[i] * cos(qϕ[i, j])
-        dy[i=0:nh-1, j=0:nc-1], u[i] * sin(qϕ[i, j])
-        dϕ[i=0:nh-1, j=0:nc-1], r[i]
-
+        
         x[i=0:nh], qx[i, 0]
         y[i=0:nh], qy[i, 0]
         ϕ[i=0:nh], qϕ[i, 0]
@@ -535,12 +526,45 @@ function basic_model!(model, nh, cdt_0, cdt_f; start=nothing, u_max_p=2.75, rk::
 
     @objective(model, Min, T)
 
+    # Boundary constraints
+    @constraints(model, begin
+        x_ic, x[0] == x_0
+        y_ic, y[0] == y_0
+        ϕ_ic, ϕ[0] == ϕ_0
+
+        x_fc, x[nh] == x_f
+        y_fc, y[nh] == y_f
+        ϕ_fc, ϕ[nh] == ϕ_f
+    end)
+
+    return x_i, y_i, ϕ_i, u_i, r_i, T_i
+end
+
+function speed_model!(model, nh, cdt_0, cdt_f; start=nothing, u_max=2.7, rw_c=0.72, rk::RKScheme=CrankNicolson())
+    _, _, _, u_i, r_i, _ = base_model!(model, nh, cdt_0, cdt_f; start=start, u_max_p=u_max, rk=rk)
+    nc = length(rk.c)
+
+    d_c = rw_c*0.4;
+
+
+    @variables(model, begin
+        -2.7 <= u[i=0:nh] <= 2.7, (start = u_i[i+1])
+        -1.5 <= r[i=0:nh] <= 1.5, (start = r_i[i+1])
+    end)
+    
+    qx = model[:qx]
+    qy = model[:qy]
+    qϕ = model[:qϕ]
+    δt = model[:δt]
+
+    @expressions(model, begin
+        dx[i=0:nh-1, j=0:nc-1], u[i] * cos(qϕ[i, j])
+        dy[i=0:nh-1, j=0:nc-1], u[i] * sin(qϕ[i, j])
+        dϕ[i=0:nh-1, j=0:nc-1], r[i]
+    end)
+
     # Dynamics
     @constraints(model, begin
-        #=con_x[i=1:nh], x[i] == x[i-1] + δt * 0.5 * cos((ϕ[i] + ϕ[i-1]) * 0.5) * (u[i] + u[i-1])
-        con_y[i=1:nh], y[i] == y[i-1] + δt * 0.5 * sin((ϕ[i] + ϕ[i-1]) * 0.5) * (u[i] + u[i-1])
-        con_ϕ[i=1:nh], ϕ[i] == ϕ[i-1] + δt * 0.5 * (r[i-1] + r[i])=#
-
         con_dx[i=0:nh-1, j=1:nc], qx[i, j] == qx[i, 0] + δt * sum(rk.a[j, k+1] * dx[i, k] for k in 0:nc-1)
         con_dy[i=0:nh-1, j=1:nc], qy[i, j] == qy[i, 0] + δt * sum(rk.a[j, k+1] * dy[i, k] for k in 0:nc-1)
         con_dϕ[i=0:nh-1, j=1:nc], qϕ[i, j] == qϕ[i, 0] + δt * sum(rk.a[j, k+1] * dϕ[i, k] for k in 0:nc-1)
@@ -550,36 +574,20 @@ function basic_model!(model, nh, cdt_0, cdt_f; start=nothing, u_max_p=2.75, rk::
         [i=0:nh-1], qϕ[i+1, 0] == qϕ[i, 0] + δt * sum(rk.b[j+1] * dϕ[i, j] for j in 0:nc-1)
     end)
 
-    # Boundary constraints
-    @constraints(model, begin
-        x_ic, x[0] == x_0
-        y_ic, y[0] == y_0
-        ϕ_ic, ϕ[0] == ϕ_0
-        u_ic, u[0] == u_0
-        r_ic, r[0] == r_0
 
-        x_fc, x[nh] == x_f
-        y_fc, y[nh] == y_f
-        ϕ_fc, ϕ[nh] == ϕ_f
-        u_fc, u[nh] == u_f
-        r_fc, r[nh] == r_f
-    end)
+    _, _, _, u_0, r_0 = cdt_0
+    _, _, _, u_f, r_f = cdt_f
 
-    return x_i, y_i, ϕ_i, u_i, r_i, T_i
-end
-
-function speed_model!(model, nh, cdt_0, cdt_f; start=nothing, u_max=2.7, rw_c=0.72, rk::RKScheme=CrankNicolson())
-    basic_model!(model, nh, cdt_0, cdt_f; start=start, u_max_p=u_max, rk=rk)
-
-    d_c = rw_c*0.4;
-
-    u = model[:u]
-    r = model[:r]
-
-    # Dynamics
+    # Commands
     @constraints(model, begin
         con_s1[i=1:nh], -u_max <= u[i] + r[i]*d_c <= u_max # cinématique
         con_s2[i=1:nh], -u_max <= u[i] - r[i]*d_c <= u_max # cinématique
+
+        u_ic, u[0] == u_0
+        r_ic, r[0] == r_0
+
+        u_fc, u[nh] == u_f
+        r_fc, r[nh] == r_f
     end)
 end
 
@@ -594,12 +602,23 @@ function dynamic_model!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48, rw=0.7
     Meq = m # masse équivalente du robot avec ses roues
     Ieq = Izz # intertie équivalente du robot avec ses roues
 
-    _, _, _, u0, r0, _ = basic_model!(model, nh, cdt_0, cdt_f; start=start, u_max_p=2.7, rk=rk)
+    _, _, _, u_i, r_i, _ = base_model!(model, nh, cdt_0, cdt_f; start=start, rk=rk)
+    nc = length(rk.c)
 
 
-    u = model[:u]
-    r = model[:r]
+    @variables(model, begin
+        qu[i=0:nh, j=0:nc], (start = u_i[i+1])
+        qr[i=0:nh, j=0:nc], (start = r_i[i+1])
+    end)
+    
+    qx = model[:qx]
+    qy = model[:qy]
+    qϕ = model[:qϕ]
     δt = model[:δt]
+
+    _, _, _, u_0, r_0 = cdt_0
+    _, _, _, u_f, r_f = cdt_f
+
 
     @variables(model, begin
         -U_max <= ul[i=0:nh] <= U_max, (start = 0)#k * (u0[i+1] - d*r0[i+1]) / ρ)
@@ -607,14 +626,44 @@ function dynamic_model!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48, rw=0.7
     end)
 
     @expressions(model, begin
-        τl[i=0:nh], k * (ul[i] - k/ρ*(u[i] - d*r[i])) / R
-        τr[i=0:nh], k * (ur[i] - k/ρ*(u[i] + d*r[i])) / R
+        τl[i=0:nh], k * (ul[i] - k/ρ*(qu[i, 0] - d*qr[i, 0])) / R
+        τr[i=0:nh], k * (ur[i] - k/ρ*(qu[i, 0] + d*qr[i, 0])) / R
+
+        dx[i=0:nh-1, j=0:nc-1], qu[i, j] * cos(qϕ[i, j])
+        dy[i=0:nh-1, j=0:nc-1], qu[i, j] * sin(qϕ[i, j])
+        dϕ[i=0:nh-1, j=0:nc-1], qr[i, j]
+        du[i=0:nh-1, j=0:nc-1], (τl[i] + τr[i]) / (ρ * Meq)
+        dr[i=0:nh-1, j=0:nc-1], (τr[i] - τl[i])*d / (ρ * Ieq)
     end)
 
     # Dynamics
     @constraints(model, begin
-        con_u[i=1:nh], u[i] == u[i-1] + δt * 0.5 * (τl[i]+τl[i-1] + τr[i]+τr[i-1]) / (ρ * Meq)
-        con_r[i=1:nh], r[i] == r[i-1] + δt * 0.5 * (τr[i]+τr[i-1] - τl[i]-τl[i-1])*d / (ρ * Ieq)
+        con_dx[i=0:nh-1, j=1:nc], qx[i, j] == qx[i, 0] + δt * sum(rk.a[j, k+1] * dx[i, k] for k in 0:nc-1)
+        con_dy[i=0:nh-1, j=1:nc], qy[i, j] == qy[i, 0] + δt * sum(rk.a[j, k+1] * dy[i, k] for k in 0:nc-1)
+        con_dϕ[i=0:nh-1, j=1:nc], qϕ[i, j] == qϕ[i, 0] + δt * sum(rk.a[j, k+1] * dϕ[i, k] for k in 0:nc-1)
+        con_du[i=0:nh-1, j=1:nc], qu[i, j] == qu[i, 0] + δt * sum(rk.a[j, k+1] * du[i, k] for k in 0:nc-1)
+        con_dr[i=0:nh-1, j=1:nc], qr[i, j] == qr[i, 0] + δt * sum(rk.a[j, k+1] * dr[i, k] for k in 0:nc-1)
+
+        [i=0:nh-1], qx[i+1, 0] == qx[i, 0] + δt * sum(rk.b[j+1] * dx[i, j] for j in 0:nc-1)
+        [i=0:nh-1], qy[i+1, 0] == qy[i, 0] + δt * sum(rk.b[j+1] * dy[i, j] for j in 0:nc-1)
+        [i=0:nh-1], qϕ[i+1, 0] == qϕ[i, 0] + δt * sum(rk.b[j+1] * dϕ[i, j] for j in 0:nc-1)
+        [i=0:nh-1], qu[i+1, 0] == qu[i, 0] + δt * sum(rk.b[j+1] * du[i, j] for j in 0:nc-1)
+        [i=0:nh-1], qr[i+1, 0] == qr[i, 0] + δt * sum(rk.b[j+1] * dr[i, j] for j in 0:nc-1)
+    end)
+
+
+    @expressions(model, begin
+        u[i=0:nh], qu[i, 0]
+        r[i=0:nh], qr[i, 0]
+    end)
+
+    # Commands
+    @constraints(model, begin
+        u_ic, u[0] == u_0
+        r_ic, r[0] == r_0
+
+        u_fc, u[nh] == u_f
+        r_fc, r[nh] == r_f
     end)
 end
 
@@ -633,7 +682,7 @@ function dynamic_model_Tlim!(model, nh, cdt_0, cdt_f; start=nothing, U_max=48, r
     Ieq = Izz # intertie équivalente du robot avec ses roues
     g = 9.81
 
-    _, _, _, u0, r0, _ = basic_model!(model, nh, cdt_0, cdt_f; start=start, u_max_p=2.7, rk=rk)
+    _, _, _, u0, r0, _ = base_model!(model, nh, cdt_0, cdt_f; start=start, u_max_p=2.7, rk=rk)
 
 
     u = model[:u]
@@ -699,7 +748,7 @@ function dynamic_model_Tlim_full!(model, nh, cdt_0, cdt_f; start=nothing, U_max=
     Ieq = Izz # intertie équivalente du robot avec ses roues
     g = 9.81
 
-    _, _, _, u0, r0, _ = basic_model!(model, nh, cdt_0, cdt_f; start=start, u_max_p=2.7)
+    _, _, _, u0, r0, _ = base_model!(model, nh, cdt_0, cdt_f; start=start, u_max_p=2.7)
 
 
     u = model[:u]
