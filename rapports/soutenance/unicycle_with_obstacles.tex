@@ -4,6 +4,9 @@
 \usepackage{graphicx}
 \graphicspath{ {./images/} }
 
+
+\usepackage{amsmath}
+
 \title{Unycicle with obstacles - oral}
 \author{Paul Fraenkel}
 \date{February 2026}
@@ -46,7 +49,7 @@
 	\end{frame}
 	
 	\begin{frame}
-		\frametitle{Contexte}
+		\frametitle{Présentation du problème}
 		
 		\begin{columns}
 			\begin{column}{0.6\textwidth}
@@ -70,27 +73,34 @@
 		\end{columns}
 	\end{frame}
 	
-	\begin{frame}
-		\frametitle{Présentation du problème}
-	\end{frame}
 	
 	
 	\section{Formulation}
 	\begin{frame}
 		\frametitle{Formulation du problème}
+		Mise en forme $\min_{\dots}\dots$
 	\end{frame}
 	
 	\section{Discrétisation}
 	\begin{frame}
 		\frametitle{"Discretize-then-optimize"}
+		
+		Expliquer choix discretize-then-optimize (difficulté pour exprimer les contraintes de collision, surtout pour des modèles plus compliqués (dynamique, frottements...) où la relation commande : surface balayée par le robot est implicite.
 	\end{frame}
 	
 	\begin{frame}
 		\frametitle{Schéma de collocation}
+		Discrétisation à pas de temps constant : $\delta t = \frac{T}{N}$
 	\end{frame}
 	
 	\begin{frame}
 		\frametitle{Schéma d'intégration}
+		Principe des méthodes de Runge-Kutta
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Schéma d'intégration}
+		Implémentation avec les tableaux de Butcher
 	\end{frame}
 	
 	
@@ -98,35 +108,62 @@
 	\section{Collisions}
 	
 	\begin{frame}
-		\frametitle{Représentation des polygones par les faces}
+		\frametitle{Approximation par des polyèdres}
+		Approximer une forme complexe / convexe par une union de polyèdres convexes
 	\end{frame}
 	
 	\begin{frame}
-		\frametitle{Représentation des polygones par les sommets}
+		\frametitle{Représentation des polyèdres par les faces}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Représentation des polyèdres par les sommets}
 	\end{frame}
 	
 	\begin{frame}
 		\frametitle{Modèle de Farkas}
+		Lemme de Farkas et certificat de non-collision
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Modèle de Farkas}
+		Contraintes de collision explicitées
 	\end{frame}
 	
 	\begin{frame}
 		\frametitle{Modèle par distance signée}
+		Expression de la distance, formulation du problème dual\\
+		extraction du certificat d'évitement à une distance $\geq$ 0
 	\end{frame}
 	
 	\begin{frame}
 		\frametitle{Modèle par distance signée}
+		Passage à la distance signée
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Modèle par distance signée}
+		Expression du problème complet
 	\end{frame}
 	
 	\begin{frame}
 		\frametitle{Modèle par les sommets}
+		expression de la distance, problème dual, expression des contraintes
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Comparaison des modèles}
+		Tableau récapitulatif du nombre de variables / contraintes égalités / contraintes inégalités.
 	\end{frame}
 	
 	\begin{frame}
 		\frametitle{Comparaison des performances}
+		Tableau des valeurs moyennes par modèle (nombre d'itérations, temps de calcul, temps optimal, nombre d'échecs de convergence)
 	\end{frame}
 	
 	\begin{frame}
-		\frametitle{Comparaison des trajectoires}
+		\frametitle{Discussion sur les performances des modèles}
+		Plus généralement, dans quelles situations, certains modèles sont plus efficaces que d'autres ? (et trouver pourquoi)
 	\end{frame}
 	
 	
@@ -135,26 +172,32 @@
 	
 	\begin{frame}
 		\frametitle{Modèle cinématique}
+		Équations de la mécanique
 	\end{frame}
 	
 	\begin{frame}
 		\frametitle{Modèle cinématique}
+		Exemple de trajectoire
 	\end{frame}
 	
 	\begin{frame}
 		\frametitle{Modèle dynamique}
+		Équations électriques / de la mécanique
 	\end{frame}
 	
 	\begin{frame}
 		\frametitle{Modèle dynamique}
+		Exemple de trajectoire
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Limitation imposée du modèle dynamique}
+		Résultats avec la force centrifuge nominale et la vitesse nominales utilisées par Xcella.
 	\end{frame}
 	
 	\begin{frame}
 		\frametitle{Limitations physiques du modèle dynamique}
-	\end{frame}
-	
-	\begin{frame}
-		\frametitle{Limitations physiques du modèle dynamique}
+		Limitation sur la force centrifuge en fonction de la tension sur chaque roue
 	\end{frame}
 	
 	
@@ -162,50 +205,49 @@
 	
 	\begin{frame}
 		\frametitle{Pourquoi indiquer un initial guess ?}
+		?
 	\end{frame}
 	
 	\begin{frame}
 		\frametitle{Initialisation en ligne droite}
+		Avantage : dynamique respectée\\
+		Inconvénient : souvent, ni les contraintes de vitesse, d'orientation et de vitesse angulaire initiales et finales ne sont respectées + ne parlons pas des collisions...
 	\end{frame}
 	
 	\begin{frame}
 		\frametitle{Chemin initial avec A*}
-	\end{frame}
-	
-	\begin{frame}
-		\frametitle{Chemin initial avec A*}
-	\end{frame}
-	
-	
-	\begin{frame}
-		\frametitle{Initialisation en ligne droite}
-	\end{frame}
-	
-	\begin{frame}
-		\frametitle{Chemin initial avec A*}
+		Principe général pour trouver un chemin qui respecte les équations
 	\end{frame}
 	
 	\begin{frame}
 		\frametitle{Distance à un polygone convexe}
+		Calcul rapide pour obtenir la distance d'un point à un polygone convexe
 	\end{frame}
 	
 	\begin{frame}
 		\frametitle{Maillage du graphe}
+		Illustration du graphe utilisé pour A*
 	\end{frame}
 	
 	\begin{frame}
 		\frametitle{Extraction du chemin}
+		Étapes d'extraction de la trajectoire initiale (échantillonnage en N points, filtrage)
 	\end{frame}
 	
 	\begin{frame}
 		\frametitle{Calcul des variables}
+		(Facultatif) Comment extraire les vitesses, orientations et vitesse angulaires de la trajectoire 2D.
 	\end{frame}
 	
 	
-	\section{Résultats}
+	\section{Conclusion}
 	
 	\begin{frame}
-		\frametitle{Echecs}
+		\frametitle{Hello}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Remerciements}
 	\end{frame}
 
 \end{document}
