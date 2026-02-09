@@ -5,12 +5,13 @@ include("models.jl")
 include("renderer.jl")
 include("initial_conditions.jl")
 
-nh = 99
+nh = 63
 f_c = 0.1
 
 # conditions initales et finales (x, y, ϕ, u, r)
 cdt_0 = (0,  1, 0, 1, 0)
-cdt_f = (3, -3.5, 0, 1, 0)
+cdt_f = (0,  0.5, π, 1, 0)
+#cdt_f = (3, -3.5, 0, 1, 0)
 
 
 # collisions
@@ -24,22 +25,23 @@ poly = [[[-10; l1_c/2], [l2_c; l1_c/2], [l2_c; -l1_c/2], [-10; -l1_c/2]],
 
 
 # modèle
-start = initAstar(nh, poly, (-2, 6), (-4, 2), cdt_0, cdt_f; spacing=0.2, dmin=0.6, smoothing=8)
+start = nothing#initAstar(nh, poly, (-2, 6), (-4, 2), cdt_0, cdt_f; spacing=0.2, dmin=0.6, smoothing=3)
 
 model = Model()
 #speed_model!(model, nh, cdt_0, cdt_f; start=start, rk=CrankNicolson())
-dynamic_model!(model, nh, cdt_0, cdt_f; start=start)
+#dynamic_model!(model, nh, cdt_0, cdt_f; start=start)
 #dynamic_model_Tlim!(model, nh, cdt_0, cdt_f; start=start, f=f_c)
 #dynamic_model_Tlim_full!(model, nh, cdt_0, cdt_f; start=start)
 #dynamic_model_slide2!(model, nh, cdt_0, cdt_f; start=start, μ=f_c)
+dynamic_model_slide32!(model, nh, cdt_0, cdt_f; start=start, μ=0.5, rk=ExplicitEuler())
 
 #Npoly_rect_2012_collisions!(model, nh, (2, 3), C, d)#; epsilon=1e-7)
-Npoly_rect_2017_collisions!(model, nh, (2, 3), C, d)
+#Npoly_rect_2017_collisions!(model, nh, (2, 3), C, d)
 #Npoly_rect_2017_penetration_collisions!(model, nh, (2, 3), C, d; kappa=1e+2)
 #Npoly_rect_2023_collisions!(model, nh, poly; d_min=0.05)
 
-#limit_time!(model, 20.0)
-solve!(model, max_iter=1000)
+#limit_time!(model, 30.0)
+solve!(model, max_iter=1000, verbose=5)
 
 
 x = JuMP.value.(model[:x]).data
@@ -50,13 +52,14 @@ pos = ((a, b, c) -> (a, b, c)).(x, y, ϕ)
 
 
 # rendering
-f = CairoMakie.Figure(size = (512, 760))#(512, 892))
+f = CairoMakie.Figure(size = (512, 1600)) #760)) #892))
 ax = CairoMakie.Axis(f[1, 1], xlabel="position x (m)", ylabel="position y (m)", aspect = CairoMakie.DataAspect(), alignmode=CairoMakie.Inside())
+ylims!(ax, (-4, 2.5))
 
 times = LinRange(0, T, nh+1)
 
-Label(f[-1, :], "Solution pour un virage en épingle", fontsize = 18)
-Label(f[0, :], "temps de trajet : T = $(trunc(T, digits=3, base=10)) s\nN = $(nh+1) pts\nf = $(f_c)", justification = :left, fontsize = 12, halign=:left)
+Label(f[-1, :], "Solution for a s-turn minimal time problem", fontsize = 18)
+Label(f[0, :], "Travel time : T = $(trunc(T, digits=3, base=10)) s\nN = $(nh+1) pts", justification = :left, fontsize = 12, halign=:left)
 
 
 function plot_turn!(ax)
@@ -65,24 +68,27 @@ function plot_turn!(ax)
 end
 plot_turn!(ax)
 plot_positions!(ax, pos, (1.128, 0.720), 1)
-plot_start!(ax, start)
-plot_trajectory!(ax, [(px, py) for (px, py, _) in pos], col=:red)
+plt_start = plot_start!(ax, start)
+plt_traj =  plot_trajectory!(ax, [(px, py) for (px, py, _) in pos], col=:red)
 plot_endpoints!(ax, cdt_0[1:3], cdt_f[1:3])
-
+plt_start.label = "initial guess"
+plt_traj.label = "trajectory"
+axislegend(ax; orientation = :horizontal)
 # commandes
 
-#=# ul, ur
-ax_u = Axis(f[2, :], xlabel="temps", ylabel="tensions u (V)")
+# ul, ur
+#=ax_u = Axis(f[2, :], xlabel="temps", ylabel="tensions u (V)")
+ylims!(ax_u, (-52, 80))
 lines!(ax_u, times, var(model, :ul), label="ul")
 lines!(ax_u, times, var(model, :ur), label="ur")
-axislegend(ax)=#
+axislegend(ax_u; orientation = :horizontal)=#
 
 # u et r
-ax_u = Axis(f[2, :], xlabel="temps", ylabel="vitesse u (m/s)")
+#=ax_u = Axis(f[2, :], xlabel="time (s)", ylabel="speed u (m/s)")
 lines!(ax_u, times, var(model, :u))
-ax_r = Axis(f[3, :], xlabel="temps", ylabel="rotation r (rad/s)")
+ax_r = Axis(f[3, :], xlabel="time (s)", ylabel="rotation r (rad/s)")
 lines!(ax_r, times, var(model, :r))
-linkxaxes!(ax_u, ax_r)
+linkxaxes!(ax_u, ax_r)=#
 
 # a et r
 #=ax_a = Axis(f[2, :], xlabel="temps", ylabel="vitesse a (m/s²)")
@@ -91,8 +97,38 @@ ax_r = Axis(f[3, :], xlabel="temps", ylabel="rotation r (rad/s²)")
 lines!(ax_r, times, var(model, :r))
 linkaxes!(ax_a, ax_r)=#
 
+
+ax_v = Axis(f[2, :], xlabel="temps", ylabel="velocity (m/s)")
+lines!(ax_v, times, var(model, :u), label="u")
+lines!(ax_v, times, var(model, :v), label="v")
+axislegend(ax_v; orientation = :horizontal)
+
+#=ax_I = Axis(f[3, :], xlabel="temps", ylabel="contact point velocity (m/s)")
+lines!(ax_I, times, var(model, :vIu_l), label="u l")
+lines!(ax_I, times, var(model, :vIv_l), label="v l")
+lines!(ax_I, times, var(model, :vIu_r), label="u r")
+lines!(ax_I, times, var(model, :vIv_r), label="v r")
+axislegend(ax_I; orientation = :horizontal)
+
+ax_s = Axis(f[4, :], xlabel="temps", ylabel="s (m/s)")
+lines!(ax_s, times, var(model, :s_l), label="s l")
+lines!(ax_s, times, var(model, :s_r), label="s r")
+axislegend(ax_s; orientation = :horizontal)
+
+ax_τ = Axis(f[5, :], xlabel="temps", ylabel="s (N.m)")
+lines!(ax_τ, times, var(model, :τ_l), label="τ l")
+lines!(ax_τ, times, var(model, :τ_r), label="τ r")
+axislegend(ax_τ; orientation = :horizontal)
+
+ax_r = Axis(f[6, :], xlabel="temps", ylabel="reaction (N)")
+lines!(ax_r, times, var(model, :ru_l), label="ru l")
+lines!(ax_r, times, var(model, :rv_l), label="rv l")
+lines!(ax_r, times, var(model, :ru_r), label="ru r")
+lines!(ax_r, times, var(model, :rv_r), label="rv r")
+axislegend(ax_r; orientation = :horizontal)=#
+
 CairoMakie.rowsize!(f.layout, 1, CairoMakie.Aspect(1, 1.0))
 
-save("figure.svg", f)
+save("figure.pdf", f)
 
 f

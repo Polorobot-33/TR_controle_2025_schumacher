@@ -9,14 +9,14 @@ include("renderer.jl")
 nh = 99
 
 # conditions initales et finales (x, y, ϕ, u, r)
-cdt_0 = (-2.5, 2.0, 0, 0, 0)
-cdt_f = (-0.4, -0.4, 0, 0, 0)
+cdt_0 = (-2.5,  1.2,  0, 0, 0)
+cdt_f = (-0.5, -0.35, 0, 0, 0)
 
 N_poly = 3
 N_faces = 2
-lp = 2.1 # longueur de la place de parking
+lp = 2.3 # longueur de la place de parking
 pp = 0.8 # profondeur de la place de parking
-rp = 3.0 # largeur de la route
+rp = 2.6 # largeur de la route
 C = [0 1; 1 0;   0 1; 0 -1;   -1 0; 0 1;   0 -1; 0 1]
 d = [0; -lp/2;   -pp; pp+10;   -lp/2; 0;   -rp; rp+10]
 poly=[[[-10;0], [-lp/2;0], [-lp/2;-10], [-10;-10]],
@@ -24,11 +24,12 @@ poly=[[[-10;0], [-lp/2;0], [-lp/2;-10], [-10;-10]],
       [[10;0], [lp/2;0], [lp/2;-10], [10;-10]],
       [[-10;rp], [-10;rp+10], [10;rp+10], [10;rp]]]
 
-start = initAstar(nh, poly, (-4, 2), (-1.5, 3), cdt_0, cdt_f; spacing=0.2, dmin=0.3, smoothing=12)
-
+#start = initAstar(nh, poly, (-4, 2), (-1.5, 3), cdt_0, cdt_f; spacing=0.2, dmin=0.3, smoothing=12)
+start = init_straight(nh, [cdt_0[1:2]...], [cdt_f[1:2]...], 2.7)
+    
 model = Model()
 
-speed_model!(model, nh, cdt_0, cdt_f; start=start, rk=CrankNicolson())#; epsilon=1e-4)#, μ=0.5, m=105)
+speed_model!(model, nh, cdt_0, cdt_f; start=nothing, rk=CrankNicolson())#; epsilon=1e-4)#, μ=0.5, m=105)
 #dynamic_model!(model, nh, cdt_0, cdt_f; start=start, epsilon=1e-4)#, μ=0.5, m=105)
 #dynamic_model_Tlim!(model, nh, cdt_0, cdt_f; start=start)
 #dynamic_model_Tlim_full!(model, nh, cdt_0, cdt_f; start=start)
@@ -36,11 +37,11 @@ speed_model!(model, nh, cdt_0, cdt_f; start=start, rk=CrankNicolson())#; epsilon
 
 
 #Npoly_rect_2012_collisions!(model, nh, (4, 2), C, d)
-#Npoly_rect_2017_collisions!(model, nh, (4, 2), C, d)
-#Npoly_rect_2017_penetration_collisions!(model, nh, (4, 2), C, d; kappa=1e+2)
-Npoly_rect_2023_collisions!(model, nh, poly; d_min=0.01)
+Npoly_rect_2017_collisions!(model, nh, (4, 2), C, d)
+#Npoly_rect_2017_penetration_collisions!(model, nh, (4, 2), C, d; kappa=1e+9)
+#Npoly_rect_2023_collisions!(model, nh, poly; d_min=0.01)
 
-limit_time!(model, 15.0)
+limit_time!(model, 4)
 solve!(model, max_iter=1000)
 
 

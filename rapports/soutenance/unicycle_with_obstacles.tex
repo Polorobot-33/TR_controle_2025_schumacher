@@ -1,0 +1,211 @@
+\documentclass{beamer}
+\usetheme{Berlin}
+\usecolortheme{default}
+\usepackage{graphicx}
+\graphicspath{ {./images/} }
+
+\title{Unycicle with obstacles - oral}
+\author{Paul Fraenkel}
+\date{February 2026}
+\logo{\includegraphics[width=2cm]{images/Logo_Mines_Paris_-_PSL.png}}
+
+\begin{document}
+	\frame{\titlepage}
+	
+	\section{Introduction}
+	\begin{frame}
+		\frametitle{Contexte général}
+		
+		Exemple d'application qui nécessitent du path planning (Drone, explorer robot, robotic arm).
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Objectif du sujet}
+		
+		\begin{block}{Objectif}
+			Résoudre numériquement un problème de contrôle optimal intégrant des contraintes de collisions sur l'état.
+		\end{block}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Contexte}
+		
+		\begin{columns}
+			\begin{column}{0.5\textwidth}
+				Facteur limitant du débit d'une flotte de robots : Vitesse de 	disparition d'un robot des voies principales.
+			\end{column}
+		
+			\begin{column}{0.5\textwidth}
+				\begin{figure}
+					\centering
+					\includegraphics[width=\linewidth]{Logo_Mines_Paris_-_PSL.png}
+					\caption{Corner clipping}
+				\end{figure}
+			\end{column}
+		\end{columns}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Contexte}
+		
+		\begin{columns}
+			\begin{column}{0.6\textwidth}
+				Problème du virage appliqué aux robots de l'entreprise Fives Xcella :
+				
+				\begin{alignat*}{2}
+					\text{Largeur des voies principales :} &\; 2.4\,\mathrm{m} \\
+					\text{Largeur des voies secondaires :} &\; 0.9\,\mathrm{m} \\
+					\text{Longueur du robot :} &\; 1.23\,\mathrm{m} \\
+					\text{Largeur du robot :} &\; 0.72\,\mathrm{m}
+				\end{alignat*}
+			\end{column}
+			
+			\begin{column}{0.4\textwidth}
+				\begin{figure}
+					\centering
+					\includegraphics[width=\linewidth]{Logo_Mines_Paris_-_PSL.png}
+					\caption{Corner clipping}
+				\end{figure}
+			\end{column}
+		\end{columns}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Présentation du problème}
+	\end{frame}
+	
+	
+	\section{Formulation}
+	\begin{frame}
+		\frametitle{Formulation du problème}
+	\end{frame}
+	
+	\section{Discrétisation}
+	\begin{frame}
+		\frametitle{"Discretize-then-optimize"}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Schéma de collocation}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Schéma d'intégration}
+	\end{frame}
+	
+	
+	
+	\section{Collisions}
+	
+	\begin{frame}
+		\frametitle{Représentation des polygones par les faces}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Représentation des polygones par les sommets}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Modèle de Farkas}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Modèle par distance signée}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Modèle par distance signée}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Modèle par les sommets}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Comparaison des performances}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Comparaison des trajectoires}
+	\end{frame}
+	
+	
+	
+	\section{Dynamique}
+	
+	\begin{frame}
+		\frametitle{Modèle cinématique}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Modèle cinématique}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Modèle dynamique}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Modèle dynamique}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Limitations physiques du modèle dynamique}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Limitations physiques du modèle dynamique}
+	\end{frame}
+	
+	
+	\section{Initialisation du problème}
+	
+	\begin{frame}
+		\frametitle{Pourquoi indiquer un initial guess ?}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Initialisation en ligne droite}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Chemin initial avec A*}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Chemin initial avec A*}
+	\end{frame}
+	
+	
+	\begin{frame}
+		\frametitle{Initialisation en ligne droite}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Chemin initial avec A*}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Distance à un polygone convexe}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Maillage du graphe}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Extraction du chemin}
+	\end{frame}
+	
+	\begin{frame}
+		\frametitle{Calcul des variables}
+	\end{frame}
+	
+	
+	\section{Résultats}
+	
+	\begin{frame}
+		\frametitle{Echecs}
+	\end{frame}
+
+\end{document}

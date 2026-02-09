@@ -24,7 +24,7 @@ start = initAstar(nh, poly, (-3, 5), (-5, 3), cdt_0, cdt_f; spacing=0.18, dmin=0
 
 model = Model()
 #speed_model!(model, nh, cdt_0, cdt_f; start=start, rk=CrankNicolson())#; epsilon=1e-4)#, μ=0.5, m=105)
-dynamic_model!(model, nh, cdt_0, cdt_f; start=start, epsilon=1e-4)#, μ=0.5, m=105)
+dynamic_model!(model, nh, cdt_0, cdt_f; start=start)#, μ=0.5, m=105)
 #dynamic_model_Tlim!(model, nh, cdt_0, cdt_f; start=start)
 #dynamic_model_Tlim_full!(model, nh, cdt_0, cdt_f; start=start)
 #dynamic_model_slide2!(model, nh, cdt_0, cdt_f; start=start, μ=0.1)
@@ -33,10 +33,22 @@ dynamic_model!(model, nh, cdt_0, cdt_f; start=start, epsilon=1e-4)#, μ=0.5, m=1
 #Npoly_rect_2012_collisions!(model, nh, (4, 2), C, d)
 #Npoly_rect_2017_collisions!(model, nh, (4, 2), C, d)
 Npoly_rect_2017_penetration_collisions!(model, nh, (4, 2), C, d; kappa=1e+2)
-#Npoly_rect_2023_collisions!(model, nh, poly; d_min=0.01)
+#Npoly_rect_2023_collisions!(model, nh, poly; d_min=0.05)
 
-limit_time!(model, 2.5)
-solve!(model, max_iter=1500)
+
+#=# Additional constraints
+u = model[:u]
+r = model[:r]
+@constraints(model, begin 
+    [i=0:nh], -3.0 <= 105 * u[i]*r[i] <= 3.0
+    [i=0:nh], -2.7 <= u[i] <= 2.7
+    [i=0:nh], -1.5 <= r[i] <= 1.5
+end)=#
+
+
+
+#limit_time!(model, 2.5)
+solve!(model, max_iter=1000)
 
 x = JuMP.value.(model[:x]).data
 y = JuMP.value.(model[:y]).data

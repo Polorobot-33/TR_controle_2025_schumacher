@@ -41,7 +41,7 @@ end
 	affiche la trajectoire initiale
 """
 function plot_start!(ax, start)
-	x, y, _ = start
+	x, y, _ = isnothing(start) ? ([0, 0], [0, 0], [0, 0]) : start
 	return CairoMakie.lines!(ax, x, y, color=:magenta)
 end
 

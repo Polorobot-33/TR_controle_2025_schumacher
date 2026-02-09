@@ -9,14 +9,14 @@ include("renderer.jl")
 include("initial_conditions.jl")
 include("polygon.jl")
 
-Random.seed!(14); # 11, 3, 5, 7
+Random.seed!(7); # 14, 11, 3, 5, 7
 
 f = CairoMakie.Figure(size = (512, 920))#(512, 920))
 ax = CairoMakie.Axis(f[1, 1], aspect = CairoMakie.DataAspect(), alignmode=CairoMakie.Inside(), xlabel="position x (m)", ylabel="position y (m)")
 
 
 
-nh = 64
+nh = 127
 
 # conditions initales et finales (x, y, ϕ, u, r)
 cdt_0 = (-8, 0, 0, 0, 0)
@@ -59,7 +59,7 @@ speed_model!(model, nh, cdt_0, cdt_f; start=start, rk=CrankNicolson())#; epsilon
 #dynamic_model_slide2!(model, nh, cdt_0, cdt_f; start=start, μ=0.1)
 
 #Npoly_rect_2012_collisions!(model, nh, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)))
-Npoly_rect_2017_collisions!(model, nh, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)))
+#Npoly_rect_2017_collisions!(model, nh, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)))
 #Npoly_rect_2017_penetration_collisions!(model, nh, (N_poly, N_faces), stack(poly_C, dims=1), reshape(poly_d, (N_faces*N_poly, 1)); kappa=20)
 #Npoly_rect_2023_collisions!(model, nh, poly; d_min=0.05)
 
