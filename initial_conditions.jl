@@ -122,10 +122,6 @@ function initAstar(nh, poly, rangex, rangey, cdt_0, cdt_f; spacing=0.1, dmin=0.1
     y_i[end]   = y_f
     x_i, y_i = smooth(x_i, y_i; s=smoothing)
 
-    ϕ_i = [atan(y_i[i+1] - y_i[i-1], x_i[i+1] - x_i[i-1]) for i in 2:nh]
-    pushfirst!(ϕ_i, ϕ_0)
-    push!(ϕ_i, ϕ_f)
-
     u_avg = max((u_0 + u_f) / 2, 0.1) # minimum speed
     u = fill(u_avg, nh+1)
 
@@ -133,9 +129,22 @@ function initAstar(nh, poly, rangex, rangey, cdt_0, cdt_f; spacing=0.1, dmin=0.1
     T = totaldist / u_avg
 
     δt = T / nh
-    r = [(ϕ_i[i+1] - ϕ_i[i-1]) / (2*δt) for i in 2:nh]
+    function turn(x1, y1, x2, y2, x3, y3) 
+        u2 = [x3-x2, y3-y2]
+        u1 = [x2-x1, y2-y1]
+        return asin((u1[1]*u2[2] - u1[2]*u2[1]) / (norm(u2)*norm(u1)))
+    end
+    #r = zeros(nh+1)#[(ϕ_i[i+1] - ϕ_i[i-1]) / (2*δt) for i in 2:nh]
+    r = [turn(x_i[i-1], y_i[i-1], x_i[i], y_i[i], x_i[i+1], y_i[i+1]) / δt for i in 2:nh]
     pushfirst!(r, r_0)
     push!(r, r_f)
+
+    ϕ_i = Float64[ϕ_0]
+    for i in 2:nh
+        push!(ϕ_i, ϕ_i[end] + r[i-1] * δt)
+    end
+    push!(ϕ_i, ϕ_f)
+    
 
     return x_i, y_i, ϕ_i, u, r, T
 end

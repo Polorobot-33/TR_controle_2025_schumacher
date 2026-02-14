@@ -11,14 +11,8 @@ include("renderer.jl")
 include("initial_conditions.jl")
 include("polygon.jl")
 
-#= CHANGES
-#  
-#  
-#
-=#
 
-
-results = DataFrame(case_name=String[], model_name=[], collision=[], collocation=String[], nh=Int[], Time=Float64[], nb_iter=Int[], calc_time=Float64[])
+results = DataFrame(case_name=String[], model_name=[], collision=[], collocation=String[], nh=Int[], success=Bool[], Time=Float64[], nb_iter=Int[], calc_time=Float64[])
 
 
 
@@ -44,8 +38,9 @@ function save_result(model, nh, case, model_name, collocation, collision_name, t
     nb_iter = JuMP.barrier_iterations(model)
     calc_time = JuMP.solve_time(model)
     times = LinRange(0, T, nh+1)
+    success = is_solved_and_feasible(model);
 
-    push!(results, (case, model_name, collision_name, collocation, nh+1, T, nb_iter, calc_time))
+    push!(results, (case, model_name, collision_name, collocation, nh+1, success, T, nb_iter, calc_time))
 
 
     Label(f[-1, :], "Solution pour \"$(case)\", comparaison des différents modèles", fontsize = 18, lineheight=0.7)
@@ -54,6 +49,7 @@ function save_result(model, nh, case, model_name, collocation, collision_name, t
                     collisions : $(collision_name)\n                
                     collocation : $(collocation)\n
                     nb iterations : $(nb_iter)\n
+                    success : $(success)\n
                     tps de calcul : $(trunc(calc_time, digits=1, base=10)) s\n
                     N = $(nh+1) pts\n
                     Condition initiale avec A*", justification = :left, fontsize = 12, halign=:left, lineheight=0.7)

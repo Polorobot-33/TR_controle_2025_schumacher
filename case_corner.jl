@@ -32,8 +32,8 @@ dynamic_model!(model, nh, cdt_0, cdt_f; start=start)#, μ=0.5, m=105)
 
 #Npoly_rect_2012_collisions!(model, nh, (4, 2), C, d)
 #Npoly_rect_2017_collisions!(model, nh, (4, 2), C, d)
-Npoly_rect_2017_penetration_collisions!(model, nh, (4, 2), C, d; kappa=1e+2)
-#Npoly_rect_2023_collisions!(model, nh, poly; d_min=0.05)
+#Npoly_rect_2017_penetration_collisions!(model, nh, (4, 2), C, d; kappa=1e+2)
+Npoly_rect_2023_collisions!(model, nh, poly; d_min=0.02)
 
 
 #=# Additional constraints
@@ -48,7 +48,7 @@ end)=#
 
 
 #limit_time!(model, 2.5)
-solve!(model, max_iter=1000)
+solve!(model, max_iter=1000, verbose=4)
 
 x = JuMP.value.(model[:x]).data
 y = JuMP.value.(model[:y]).data
@@ -59,14 +59,17 @@ T = JuMP.value.(model[:T])
 pos = ((a, b, c) -> (a, b, c)).(x, y, ϕ)
 
 
+
+
 # rendering
 f = Figure(size = (600, 1024))
-ax = CairoMakie.Axis(f[1, 1], xlabel="position x (m)", ylabel="position y (m)", aspect = CairoMakie.DataAspect(), alignmode=CairoMakie.Inside())
+ax = CairoMakie.Axis(f[1, 1:2], xlabel="position x (m)", ylabel="position y (m)", aspect = CairoMakie.DataAspect(), alignmode=CairoMakie.Inside())
 
 times = LinRange(0, T, nh+1)
 
-Label(f[-1, :], "Solution pour le virage, comparaison des différents modèles", fontsize = 18)
-Label(f[0, :], "temps de trajet : T = $(trunc(T, digits=3, base=10)) s\nN = $(nh+1) pts\nCondition initiale avec A*", justification = :left, fontsize = 12, halign=:left)
+Label(f[-1, 1:2], "Solution pour le virage, comparaison des différents modèles", fontsize = 18)
+Label(f[0, 1], "temps de trajet : T = $(trunc(T, digits=3, base=10)) s\nN = $(nh+1) pts\nCondition initiale avec A*", justification = :left, fontsize = 12, halign=:left)
+Label(f[0, 2], "Collisions : 2023 (sommets) \nModèle dynamique \nCollocation : Crank-Nicolson", justification = :left, fontsize = 12, halign=:left)
 
 plot_terrain!(ax, l1_c, l2_c)
 plot_positions!(ax, pos, (1.128, 0.720), 1)
@@ -74,22 +77,22 @@ plot_positions!(ax, pos, (1.128, 0.720), 1)
 pl_st = plot_start!(ax, start)
 pl_traj = plot_trajectory!(ax, [(px, py) for (px, py, _) in pos], col=:red)
 plot_endpoints!(ax, cdt_0[1:3], cdt_f[1:3])
-
+axislegend(ax, [pl_st, pl_traj], ["initial guess", "trajectory"])
 
 # commandes
 
-#=# ul, ur
-ax_u = Axis(f[2, :], xlabel="temps", ylabel="tensions u (V)")
+# ul, ur
+ax_u = Axis(f[2, 1:2], xlabel="temps", ylabel="tensions u (V)")
 lines!(ax_u, times, var(model, :ul), label="ul")
 lines!(ax_u, times, var(model, :ur), label="ur")
-axislegend(ax)=#
+axislegend(ax_u, position=:lb)
 
 # u et r
-ax_u = Axis(f[2, :], xlabel="temps", ylabel="vitesse u (m/s)")
-lines!(ax_u, times, var(model, :u))
-ax_r = Axis(f[3, :], xlabel="temps", ylabel="rotation r (rad/s)")
+ax_v = Axis(f[3, :], xlabel="temps", ylabel="vitesse u (m/s)")
+lines!(ax_v, times, var(model, :u))
+ax_r = Axis(f[4, :], xlabel="temps", ylabel="rotation r (rad/s)")
 lines!(ax_r, times, var(model, :r))
-linkxaxes!(ax_u, ax_r)
+linkxaxes!(ax_v, ax_r)
 
 # a et r
 #=ax_a = Axis(f[2, :], xlabel="temps", ylabel="vitesse a (m/s²)")
@@ -98,7 +101,7 @@ ax_r = Axis(f[3, :], xlabel="temps", ylabel="rotation r (rad/s²)")
 lines!(ax_r, times, var(model, :r))
 linkaxes!(ax_a, ax_r)=#
 
-rowsize!(f.layout, 1, Aspect(1, 1.0))
+rowsize!(f.layout, 1, Relative(1/2))
 
 #make_animation(x, y, ϕ, (ax) -> plot_terrain!(ax, l1_c, l2_c))
 save("figure.svg", f)

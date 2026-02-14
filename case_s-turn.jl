@@ -10,8 +10,7 @@ f_c = 0.1
 
 # conditions initales et finales (x, y, ϕ, u, r)
 cdt_0 = (0,  1, 0, 1, 0)
-cdt_f = (0,  0.5, π, 1, 0)
-#cdt_f = (3, -3.5, 0, 1, 0)
+cdt_f = (3, -3.5, 0, 1, 0)
 
 
 # collisions
@@ -25,22 +24,22 @@ poly = [[[-10; l1_c/2], [l2_c; l1_c/2], [l2_c; -l1_c/2], [-10; -l1_c/2]],
 
 
 # modèle
-start = nothing#initAstar(nh, poly, (-2, 6), (-4, 2), cdt_0, cdt_f; spacing=0.2, dmin=0.6, smoothing=3)
+start = initAstar(nh, poly, (-2, 6), (-4, 2), cdt_0, cdt_f; spacing=0.2, dmin=0.6, smoothing=3)
 
 model = Model()
 #speed_model!(model, nh, cdt_0, cdt_f; start=start, rk=CrankNicolson())
 #dynamic_model!(model, nh, cdt_0, cdt_f; start=start)
 #dynamic_model_Tlim!(model, nh, cdt_0, cdt_f; start=start, f=f_c)
 #dynamic_model_Tlim_full!(model, nh, cdt_0, cdt_f; start=start)
-#dynamic_model_slide2!(model, nh, cdt_0, cdt_f; start=start, μ=f_c)
-dynamic_model_slide32!(model, nh, cdt_0, cdt_f; start=start, μ=0.5, rk=ExplicitEuler())
+dynamic_model_slide2!(model, nh, cdt_0, cdt_f; start=start, μ=f_c)
+#dynamic_model_slide32!(model, nh, cdt_0, cdt_f; start=start, μ=0.5, rk=ExplicitEuler())
 
 #Npoly_rect_2012_collisions!(model, nh, (2, 3), C, d)#; epsilon=1e-7)
-#Npoly_rect_2017_collisions!(model, nh, (2, 3), C, d)
+Npoly_rect_2017_collisions!(model, nh, (2, 3), C, d)
 #Npoly_rect_2017_penetration_collisions!(model, nh, (2, 3), C, d; kappa=1e+2)
 #Npoly_rect_2023_collisions!(model, nh, poly; d_min=0.05)
 
-#limit_time!(model, 30.0)
+limit_time!(model, 20.0)
 solve!(model, max_iter=1000, verbose=5)
 
 
@@ -52,7 +51,7 @@ pos = ((a, b, c) -> (a, b, c)).(x, y, ϕ)
 
 
 # rendering
-f = CairoMakie.Figure(size = (512, 1600)) #760)) #892))
+f = CairoMakie.Figure(size = (512, 512))#1600)) #760)) #892))
 ax = CairoMakie.Axis(f[1, 1], xlabel="position x (m)", ylabel="position y (m)", aspect = CairoMakie.DataAspect(), alignmode=CairoMakie.Inside())
 ylims!(ax, (-4, 2.5))
 
@@ -98,10 +97,10 @@ lines!(ax_r, times, var(model, :r))
 linkaxes!(ax_a, ax_r)=#
 
 
-ax_v = Axis(f[2, :], xlabel="temps", ylabel="velocity (m/s)")
+#=ax_v = Axis(f[2, :], xlabel="temps", ylabel="velocity (m/s)")
 lines!(ax_v, times, var(model, :u), label="u")
 lines!(ax_v, times, var(model, :v), label="v")
-axislegend(ax_v; orientation = :horizontal)
+axislegend(ax_v; orientation = :horizontal)=#
 
 #=ax_I = Axis(f[3, :], xlabel="temps", ylabel="contact point velocity (m/s)")
 lines!(ax_I, times, var(model, :vIu_l), label="u l")
